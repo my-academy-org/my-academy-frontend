@@ -1,57 +1,171 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f4efe7;
-  --foreground: #202b24;
+/* ------------------------------------------------------------------
+   My Academy — design tokens
+   Ink (neutral text), Canvas (warm off-white surfaces), Brand (deep
+   emerald), Gold (sparing accent). Everything else derives from these.
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-amiri), ui-serif, Georgia, serif;
+
+  --color-ink-950: #0b1512;
+  --color-ink-900: #14211d;
+  --color-ink-800: #24322d;
+  --color-ink-700: #3a4943;
+  --color-ink-600: #52615b;
+  --color-ink-500: #6d7b75;
+  --color-ink-400: #97a29d;
+  --color-ink-300: #c2cac6;
+
+  --color-canvas: #faf8f3;
+  --color-muted: #f3f0e8;
+  --color-line: #e7e2d7;
+  --color-line-strong: #d7d0c1;
+
+  --color-brand-50: #eef6f2;
+  --color-brand-100: #d5ebe1;
+  --color-brand-200: #acd6c4;
+  --color-brand-300: #78b9a0;
+  --color-brand-400: #3f9a7d;
+  --color-brand-500: #1f7d63;
+  --color-brand-600: #156852;
+  --color-brand-700: #105544;
+  --color-brand-800: #0d4337;
+  --color-brand-900: #0b342b;
+  --color-brand-950: #07221c;
+
+  --color-gold-50: #fbf5e8;
+  --color-gold-100: #f5e7c8;
+  --color-gold-300: #e2bf7a;
+  --color-gold-400: #d6a956;
+  --color-gold-500: #c3913a;
+  --color-gold-600: #a2762a;
+
+  --shadow-card: 0 1px 2px rgb(16 28 24 / 0.04), 0 1px 1px rgb(16 28 24 / 0.03);
+  --shadow-lift: 0 1px 2px rgb(16 28 24 / 0.05), 0 14px 32px -14px rgb(16 28 24 / 0.16);
+  --shadow-float: 0 2px 4px rgb(10 30 25 / 0.04), 0 40px 80px -28px rgb(10 30 25 / 0.28);
+
+  --animate-fade-up: fade-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-feature-settings: "kern";
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
+@layer components {
+  /* Faint blueprint grid used behind the hero and CTA band */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(16 28 24 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(16 28 24 / 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .mask-fade-y {
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+  }
+
+  /* Native <dialog> entrance / exit */
+  dialog.modal {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      overlay 0.2s ease allow-discrete,
+      display 0.2s ease allow-discrete;
+  }
+
+  dialog.modal[open] {
+    opacity: 1;
+    transform: none;
+  }
+
+  @starting-style {
+    dialog.modal[open] {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+  }
+
+  dialog.modal::backdrop {
+    background: rgb(11 21 18 / 0);
+    transition:
+      background 0.2s ease,
+      overlay 0.2s ease allow-discrete,
+      display 0.2s ease allow-discrete;
+  }
+
+  dialog.modal[open]::backdrop {
+    background: rgb(11 21 18 / 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  @starting-style {
+    dialog.modal[open]::backdrop {
+      background: rgb(11 21 18 / 0);
+    }
+  }
 }
 
-.welcome-page {
-  align-items: center;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.62), transparent 55%),
-    var(--background);
-  display: flex;
-  flex: 1;
-  justify-content: center;
-  min-height: 100vh;
-  overflow: hidden;
-  position: relative;
-}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 
-.welcome-page h1 {
-  color: var(--foreground);
-  font-size: clamp(2.6rem, 8vw, 7rem);
-  font-weight: 600;
-  letter-spacing: -0.06em;
-  line-height: 0.95;
-  margin: 0;
-  max-width: 9ch;
-  position: relative;
-  text-align: center;
-  z-index: 1;
-}
-
-.welcome-glow {
-  background: #e2b85d;
-  border-radius: 50%;
-  filter: blur(1px);
-  height: min(42vw, 32rem);
-  opacity: 0.5;
-  position: absolute;
-  right: 12%;
-  top: 8%;
-  width: min(42vw, 32rem);
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

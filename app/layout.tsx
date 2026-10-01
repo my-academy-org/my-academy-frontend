@@ -1,29 +1,42 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Amiri, Cairo } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["arabic", "latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// Used only inside the "Academic" academy template preview.
+const amiri = Amiri({
+  variable: "--font-amiri",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "My Academy Soon",
-  description: "My Academy Soon",
+  title: {
+    default: "My Academy — منصة إنشاء وإدارة الأكاديميات التعليمية",
+    template: "%s · My Academy",
+  },
+  description:
+    "My Academy منصة سحابية تمنح كل معلّم أكاديمية إلكترونية مستقلة بنطاق فرعي خاص وقالب احترافي ولوحة تحكم متكاملة لإدارة الدورات والطلاب والاختبارات.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#faf8f3",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="ar"
+      dir="rtl"
+      className={`${cairo.variable} ${amiri.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }
