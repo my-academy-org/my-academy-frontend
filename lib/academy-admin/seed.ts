@@ -342,3 +342,30 @@ export function buildAcademySeed(site: AcademySite): AcademySeed {
     activity: activity.slice(0, 40),
   };
 }
+
+/**
+ * A real owner's dashboard before any of its data comes from the API: the
+ * academy's identity and the signed-in owner, with nothing invented — no
+ * sample courses, students or exams.
+ */
+export function emptyAcademySeed(profile: Pick<AcademySeed["profile"], "slug" | "name" | "plan" | "template" | "owner">): AcademySeed {
+  return {
+    profile: { ...profile, notifications: { newEnrollment: true, examSubmission: true, weeklySummary: true, productUpdates: false } },
+    courses: [],
+    lessons: [],
+    students: [],
+    codes: [],
+    exams: [],
+    submissions: [],
+    website: {
+      hero: { eyebrow: "", title: "", description: "" },
+      about: { title: "", description: "" },
+      instructor: { name: profile.owner.name, title: "", bio: "" },
+      contact: { email: "", phone: "", whatsapp: "", address: "", workingHours: "" },
+      footerTagline: "",
+      featuredCourseIds: [],
+    },
+    media: [],
+    activity: [],
+  };
+}
