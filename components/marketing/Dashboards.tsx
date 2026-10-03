@@ -7,16 +7,15 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { BrowserFrame } from "@/components/mockups/BrowserFrame";
 import { DashboardMock } from "@/components/mockups/DashboardMock";
 import { cn } from "@/lib/cn";
-import { dashboardRoles, ROOT_DOMAIN, type Role } from "@/lib/site";
+import { dashboardRoles, ROOT_DOMAIN, type DashboardRole } from "@/lib/site";
 
-const urls: Record<Role, string> = {
-  admin: `app.${ROOT_DOMAIN}/admin`,
-  teacher: `ahmed.${ROOT_DOMAIN}/dashboard`,
+const urls: Record<DashboardRole, string> = {
+  teacher: `${ROOT_DOMAIN}/dashboard`,
   student: `ahmed.${ROOT_DOMAIN}/my-courses`,
 };
 
 export function Dashboards() {
-  const [active, setActive] = useState<Role>("teacher");
+  const [active, setActive] = useState<DashboardRole>("teacher");
   const role = dashboardRoles.find((r) => r.id === active)!;
 
   return (
@@ -27,13 +26,13 @@ export function Dashboards() {
           inverse
           eyebrow="منظومة لوحات التحكم"
           title="تجربة إدارة واحدة، بصلاحيات حسب الدور"
-          description="المشرف العام والمعلّم والطالب يعملون على نفس النظام وبنفس لغة التصميم — كلٌّ يرى ما يخصّه فقط."
+          description="المعلّم والطالب يعملان على نفس النظام وبنفس لغة التصميم — كلٌّ يرى ما يخصّه فقط."
         />
 
         <div
           role="tablist"
           aria-label="لوحات التحكم"
-          className="mx-auto mt-12 flex w-full max-w-xl gap-1 rounded-2xl bg-white/5 p-1.5 ring-1 ring-white/10"
+          className="mx-auto mt-12 flex w-full max-w-md gap-1 rounded-2xl bg-white/5 p-1.5 ring-1 ring-white/10"
         >
           {dashboardRoles.map((r) => (
             <button

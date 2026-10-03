@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
+import { getSession, homeFor } from "@/lib/auth/server";
+import { DEMO_AUTH, DEMO_PASSWORD, demoAccounts } from "@/lib/auth/users";
 import { ROOT_DOMAIN } from "@/lib/site";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "تسجيل الدخول" };
 
-export default function LoginPage() {
+/** Platform sign-in for SUPER_ADMIN and ACADEMY_ADMIN. Already signed in → straight to their dashboard. */
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const session = await getSession();
+  if (session) redirect(await homeFor(session));
+  const { next } = await searchParams;
+
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       <div className="flex flex-col px-4 py-8 sm:px-10">
@@ -20,7 +28,7 @@ export default function LoginPage() {
           <p className="mt-2 leading-7 text-ink-600">للمعلّمين ومشرفي المنصة.</p>
 
           <div className="mt-8">
-            <LoginForm />
+            <LoginForm next={typeof next === "string" ? next : undefined} demo={DEMO_AUTH ? { accounts: demoAccounts(), password: DEMO_PASSWORD } : undefined} />
           </div>
 
           <div className="mt-8 flex gap-3 rounded-xl border border-line bg-white p-4 text-sm leading-6 text-ink-600">

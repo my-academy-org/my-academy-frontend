@@ -157,6 +157,24 @@
   }
 }
 
+/* ------------------------------------------------------------------
+   Academy websites: the Shell sets --accent (academy brand colour or the
+   template default); everything else derives from it.
+------------------------------------------------------------------- */
+[data-template] {
+  --accent-soft: color-mix(in oklab, var(--accent) 9%, white);
+  --accent-muted: color-mix(in oklab, var(--accent) 22%, white);
+  --accent-strong: color-mix(in oklab, var(--accent) 82%, black);
+  --accent-fg: #ffffff;
+}
+
+[data-template="PREMIUM"] {
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, #0d0d0f);
+  --accent-muted: color-mix(in oklab, var(--accent) 35%, #0d0d0f);
+  --accent-strong: color-mix(in oklab, var(--accent) 85%, white);
+  --accent-fg: #0d0d0f;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
