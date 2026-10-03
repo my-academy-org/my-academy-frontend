@@ -2,43 +2,42 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { resendInvitationAction, setOwnerStatusAction, updateOwnerAction, type ActionResult } from "@/app/super-admin/actions";
+import { resendInvitationAction, setOwnerStatusAction, updateOwnerAction, type ActionResult } from "@/lib/admin/actions";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
+import { listOwnerlessAcademies, listOwners } from "@/lib/admin/api";
 import { EMAIL_RE, formatDate } from "@/lib/admin/meta";
-import type { OwnerList, OwnerRow, OwnerStatus } from "@/lib/admin/types";
-import { AddOwnerDialog, type OwnerlessAcademy } from "../AddOwnerDialog";
+import type { OwnerRow, OwnerStatus } from "@/lib/admin/types";
+import { useApiQuery } from "../useApiQuery";
+import { AddOwnerDialog } from "../AddOwnerDialog";
 import { useListFilters } from "../useListFilters";
 import { useConfirm } from "@/components/dashboard/ConfirmDialog";
 import { RowMenu, type MenuItem } from "@/components/dashboard/RowMenu";
 import { useToast } from "@/components/dashboard/Toaster";
 import { Avatar, EmptyState, FilterTabs, PageHeader, SearchField, Table, Td, Th, Tr } from "@/components/dashboard/ui";
-import { OwnerStatusBadge, Pagination } from "../ui";
+import { Loading, LoadError, OwnerStatusBadge, Pagination } from "../ui";
 
 export type OwnerFilters = { status: OwnerStatus | ""; search: string };
 type Editor = { open: boolean; row?: OwnerRow; version: number };
 
-export function OwnersView({
-  list,
-  filters,
-  ownerless,
-  openCreate = false,
-}: {
-  list: OwnerList;
-  filters: OwnerFilters;
-  /** Academies that can still receive an owner. */
-  ownerless: OwnerlessAcademy[];
-  openCreate?: boolean;
-}) {
+export function OwnersView({ filters, page, openCreate = false }: { filters: OwnerFilters; page: number; openCreate?: boolean }) {
   const notify = useToast();
   const { confirm, dialog } = useConfirm();
-  const { query, onSearch, apply, reset, hrefFor, pending } = useListFilters("/super-admin/owners", filters);
+  const { query, onSearch, apply, reset, hrefFor } = useListFilters("/super-admin/owners", filters);
   const [editor, setEditor] = useState<Editor>({ open: false, version: 0 });
   const [creator, setCreator] = useState({ open: openCreate, version: 0 });
-  const { counts, data: rows, meta } = list;
+  const list = useApiQuery(`owners:${JSON.stringify(filters)}:${page}`, () => listOwners({ ...filters, page }));
+  // Academies that can still receive an owner.
+  const ownerless = useApiQuery("ownerless", listOwnerlessAcademies);
+
+  if (list.error) return <LoadError message={list.error} />;
+  if (!list.data) return <Loading />;
+
+  const { counts, data: rows, meta } = list.data;
+  const pending = list.loading;
 
   const filtered = filters.search !== "" || filters.status !== "";
   const openCreator = () => setCreator((c) => ({ open: true, version: c.version + 1 }));
@@ -222,7 +221,10 @@ export function OwnersView({
       </div>
 
       <OwnerEditor key={`edit-${editor.version}`} open={editor.open} row={editor.row} onClose={() => setEditor((e) => ({ ...e, open: false }))} />
-      <AddOwnerDialog key={`add-${creator.version}`} open={creator.open} onClose={() => setCreator((c) => ({ ...c, open: false }))} academies={ownerless} />
+      {/* Mounted once the academies are known: its initial choice depends on them. */}
+      {ownerless.data && (
+        <AddOwnerDialog key={`add-${creator.version}`} open={creator.open} onClose={() => setCreator((c) => ({ ...c, open: false }))} academies={ownerless.data} />
+      )}
       {dialog}
     </>
   );

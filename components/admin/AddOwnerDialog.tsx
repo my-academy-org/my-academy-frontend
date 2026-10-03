@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { requestOwnerOtpAction, verifyOwnerOtpAction } from "@/app/super-admin/actions";
+import { requestOwnerOtpAction, verifyOwnerOtpAction } from "@/lib/admin/actions";
 import { Notice } from "@/components/dashboard/ui";
 import { useToast } from "@/components/dashboard/Toaster";
 import { Button } from "@/components/ui/Button";

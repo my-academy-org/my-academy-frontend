@@ -93,3 +93,24 @@ export async function verifySession(token: string | undefined): Promise<Session 
 export function homePathFor(role: Role) {
   return role === "SUPER_ADMIN" ? "/super-admin" : role === "ACADEMY_ADMIN" ? "/dashboard" : null;
 }
+
+/** Only same-site paths under the role's own area are honoured as ?next=. */
+export function safeNext(next: string, home: string) {
+  return next.startsWith(`${home}/`) || next === home ? next : home;
+}
+
+/**
+ * Whether a page on `hostname` can sign in against the API straight from the
+ * browser: the API sets its cookie on its parent domain (api.example.com →
+ * .example.com) and only accepts credentialed requests from that domain, so
+ * the page must live on it too.
+ */
+export function sharesApiDomain(apiUrl: string | undefined, hostname: string) {
+  if (!apiUrl) return false;
+  try {
+    const domain = new URL(apiUrl).hostname.split(".").slice(1).join(".");
+    return domain.includes(".") && (hostname === domain || hostname.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}

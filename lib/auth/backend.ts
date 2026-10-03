@@ -1,13 +1,17 @@
 import { ACADEMY_API_URL } from "@/lib/academy/config";
-import { ACCESS_TOKEN_COOKIE, ACCESS_TOKEN_TTL_SECONDS, type Role } from "./session";
+import { ACCESS_TOKEN_COOKIE, ACCESS_TOKEN_TTL_SECONDS, SESSION_COOKIE, type Role } from "./session";
 
 /**
  * Auth endpoints of the backend (docs/auth-api.md), called from the server.
  *
- * The API authenticates with an httpOnly `access_token` cookie. Because sign-in
- * runs in a server action, the browser never sees the API's Set-Cookie, so the
- * cookie is carried over by hand: read from the login response, stored on our
- * own host, and sent back in a `Cookie` header on every server-side API call.
+ * The API authenticates with an httpOnly `access_token` cookie, which the
+ * server sends back in a `Cookie` header on every server-side API call.
+ *
+ * On the platform's own domain the browser signs in against the API directly
+ * (app/login/LoginForm.tsx) and the API's domain-wide cookie reaches this
+ * server. Anywhere else (e.g. localhost, which the API's CORS and cookie
+ * domain exclude) sign-in runs here instead, and the cookie is carried over by
+ * hand: read from the login response and stored on our own host.
  */
 
 export type BackendUser = { id: number; email: string; role: Role; tenantId: number | null; name?: string; status?: string };
@@ -114,11 +118,31 @@ export async function verifyAcademyAdminOtp(email: string, otp: string): Promise
   }
 }
 
-/** POST /auth/logout — safe to call even when the session already expired. */
-export async function backendLogout(token: string | undefined) {
+/**
+ * POST /auth/logout — safe to call even when the session already expired.
+ * Returns the API's own Set-Cookie headers (they clear `access_token` on the
+ * API's cookie domain) so the caller can pass them on to the browser.
+ */
+export async function backendLogout(token: string | undefined): Promise<string[]> {
   try {
-    await fetch(`${ACADEMY_API_URL}/auth/logout`, { method: "POST", headers: token ? accessTokenHeader(token) : undefined, cache: "no-store" });
+    const res = await fetch(`${ACADEMY_API_URL}/auth/logout`, { method: "POST", headers: token ? accessTokenHeader(token) : undefined, cache: "no-store" });
+    return res.headers.getSetCookie();
   } catch {
     // The session cookie is dropped on our side regardless.
+    return [];
   }
+}
+
+/**
+ * Ends the session in the browser: drops our own cookies and, with a backend,
+ * the API's domain-wide `access_token` (set when sign-in ran in the browser).
+ * A browser ignores a forwarded Set-Cookie whose Domain doesn't cover this host.
+ */
+export async function clearSession(response: Response, token: string | undefined) {
+  const forwarded = ACADEMY_API_URL ? await backendLogout(token) : [];
+  for (const name of [SESSION_COOKIE, ACCESS_TOKEN_COOKIE]) {
+    response.headers.append("set-cookie", `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+  }
+  for (const cookie of forwarded) response.headers.append("set-cookie", cookie);
+  return response;
 }

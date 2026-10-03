@@ -11,9 +11,20 @@ import { AddOwnerDialog } from "../AddOwnerDialog";
 import { TemplateThumb } from "../TemplateThumb";
 import { useAcademyActions } from "../useAcademyActions";
 import { Avatar, BackLink, DetailRow, EmptyState, Notice, PageHeader, Panel, StatusPill } from "@/components/dashboard/ui";
-import { AcademyMark, AcademyStatusBadge, DomainLink, TemplateTag } from "../ui";
+import { AcademyMark, AcademyStatusBadge, DomainLink, Loading, LoadError, TemplateTag } from "../ui";
+import { useApiQuery } from "../useApiQuery";
+import { getAcademy } from "@/lib/admin/api";
 
-export function AcademyDetailView({ academy, openAddOwner = false }: { academy: AdminAcademyDetail; openAddOwner?: boolean }) {
+export function AcademyDetailView({ id, openAddOwner = false }: { id: number; openAddOwner?: boolean }) {
+  const academy = useApiQuery(`academy:${id}`, () => getAcademy(id));
+
+  if (academy.error) return <LoadError message={academy.error} />;
+  if (academy.data === undefined) return <Loading />;
+  if (!academy.data) return <AcademyNotFound />;
+  return <AcademyDetail academy={academy.data} openAddOwner={openAddOwner} />;
+}
+
+function AcademyDetail({ academy, openAddOwner }: { academy: AdminAcademyDetail; openAddOwner: boolean }) {
   const router = useRouter();
   const { activate, suspend, remove, dialog } = useAcademyActions({ onDeleted: () => router.push("/super-admin/academies") });
   const [ownerDialog, setOwnerDialog] = useState({ open: openAddOwner && !academy.owner, version: 0 });

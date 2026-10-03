@@ -156,7 +156,20 @@ function isActive(item: ShellNavItem, pathname: string) {
 }
 
 /** Signed-in user block for the sidebar footer. */
-export function ShellAccount({ avatar, name, meta }: { avatar: ReactNode; name: string; meta: ReactNode }) {
+export function ShellAccount({
+  avatar,
+  name,
+  meta,
+  onSignOut,
+}: {
+  avatar: ReactNode;
+  name: string;
+  meta: ReactNode;
+  /** Signs out from the browser instead of posting to /logout. */
+  onSignOut?: () => void;
+}) {
+  const signOutClass = "grid size-9 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-muted hover:text-ink-900";
+  const signOutIcon = <Icon name="logout" className="size-[1.1rem] rtl:rotate-180" />;
   return (
     <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
       {avatar}
@@ -164,9 +177,15 @@ export function ShellAccount({ avatar, name, meta }: { avatar: ReactNode; name: 
         <p className="truncate text-sm font-bold text-ink-950">{name}</p>
         <p className="truncate text-xs text-ink-500">{meta}</p>
       </div>
-      <SignOutButton label="تسجيل الخروج" className="grid size-9 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-muted hover:text-ink-900">
-        <Icon name="logout" className="size-[1.1rem] rtl:rotate-180" />
-      </SignOutButton>
+      {onSignOut ? (
+        <button type="button" aria-label="تسجيل الخروج" onClick={onSignOut} className={signOutClass}>
+          {signOutIcon}
+        </button>
+      ) : (
+        <SignOutButton label="تسجيل الخروج" className={signOutClass}>
+          {signOutIcon}
+        </SignOutButton>
+      )}
     </div>
   );
 }

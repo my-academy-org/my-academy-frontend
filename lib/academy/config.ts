@@ -26,5 +26,10 @@ export function parseTemplateId(value: string | null | undefined): TemplateId | 
 /** Internal route segment the proxy rewrites tenant requests into. */
 export const SITES_SEGMENT = "sites";
 
-/** Backend base URL. When unset, the bundled sample academies are used. */
-export const ACADEMY_API_URL = process.env.ACADEMY_API_URL;
+/**
+ * Backend base URL, e.g. https://api.my-academy.online. Public because the
+ * browser signs in against it directly; when unset, the bundled sample data
+ * and demo sign-in are used. ACADEMY_API_URL overrides it for server-side calls.
+ */
+export const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL;
+export const ACADEMY_API_URL = process.env.ACADEMY_API_URL ?? PUBLIC_API_URL;

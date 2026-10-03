@@ -5,20 +5,29 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import { listAcademies, listTemplates } from "@/lib/admin/api";
 import { formatDate } from "@/lib/admin/meta";
-import type { AcademyList, AcademyStatus, AdminTemplate } from "@/lib/admin/types";
+import type { AcademyStatus } from "@/lib/admin/types";
+import { useApiQuery } from "../useApiQuery";
 import { RowMenu } from "@/components/dashboard/RowMenu";
 import { useAcademyActions } from "../useAcademyActions";
 import { useListFilters } from "../useListFilters";
 import { EmptyState, FilterTabs, PageHeader, SearchField, Table, Td, Th, Tr } from "@/components/dashboard/ui";
-import { AcademyMark, AcademyStatusBadge, DomainLink, Pagination, TemplateTag } from "../ui";
+import { AcademyMark, AcademyStatusBadge, DomainLink, Loading, LoadError, Pagination, TemplateTag } from "../ui";
 
 export type AcademyFilters = { status: AcademyStatus | ""; templateId: string; search: string };
 
-export function AcademiesView({ list, templates, filters }: { list: AcademyList; templates: AdminTemplate[]; filters: AcademyFilters }) {
+export function AcademiesView({ filters, page }: { filters: AcademyFilters; page: number }) {
   const { menuItems, dialog } = useAcademyActions();
-  const { query, onSearch, apply, reset, hrefFor, pending } = useListFilters("/super-admin/academies", filters);
-  const { counts, data: rows, meta } = list;
+  const { query, onSearch, apply, reset, hrefFor } = useListFilters("/super-admin/academies", filters);
+  const list = useApiQuery(`academies:${JSON.stringify(filters)}:${page}`, () => listAcademies({ ...filters, page }));
+  const templates = useApiQuery("templates", listTemplates).data ?? [];
+
+  if (list.error) return <LoadError message={list.error} />;
+  if (!list.data) return <Loading />;
+
+  const { counts, data: rows, meta } = list.data;
+  const pending = list.loading;
 
   const filtered = filters.search !== "" || filters.status !== "" || filters.templateId !== "";
 

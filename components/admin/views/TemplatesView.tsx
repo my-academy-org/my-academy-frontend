@@ -4,13 +4,21 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
-import type { AdminTemplate } from "@/lib/admin/types";
+import { listTemplates } from "@/lib/admin/api";
 import { TemplateThumb } from "../TemplateThumb";
+import { Loading, LoadError } from "../ui";
+import { useApiQuery } from "../useApiQuery";
 import { EmptyState, Notice, PageHeader } from "@/components/dashboard/ui";
 
 /** Read-only: the API has no templates endpoint yet, so these are the templates existing academies use. */
-export function TemplatesView({ templates }: { templates: (AdminTemplate & { usage: number })[] }) {
+export function TemplatesView() {
   const [preview, setPreview] = useState<{ open: boolean; id?: number }>({ open: false });
+  const loaded = useApiQuery("templates", listTemplates);
+
+  if (loaded.error) return <LoadError message={loaded.error} />;
+  if (!loaded.data) return <Loading />;
+
+  const templates = loaded.data;
   const previewed = templates.find((t) => t.id === preview.id);
 
   return (

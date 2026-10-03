@@ -4,7 +4,7 @@ import {
   deleteAcademyAction,
   setAcademyStatusAction,
   type ActionResult,
-} from "@/app/super-admin/actions";
+} from "@/lib/admin/actions";
 import { useConfirm } from "@/components/dashboard/ConfirmDialog";
 import type { MenuItem } from "@/components/dashboard/RowMenu";
 import { useToast } from "@/components/dashboard/Toaster";
