@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { academyOrigin } from "@/lib/auth/server";
-import { ACCESS_TOKEN_COOKIE, homePathFor, SESSION_COOKIE, SESSION_TTL_SECONDS, signSession } from "@/lib/auth/session";
+import { ACCESS_TOKEN_COOKIE, homePathFor, safeNext, SESSION_COOKIE, SESSION_TTL_SECONDS, signSession } from "@/lib/auth/session";
 import { authenticate, DEMO_AUTH, DEMO_PASSWORD } from "@/lib/auth/users";
 
 export type LoginState =
@@ -14,11 +14,10 @@ export type LoginState =
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Only same-site paths under the role's own area are honoured as ?next=. */
-function safeNext(next: string, home: string) {
-  return next.startsWith(`${home}/`) || next === home ? next : home;
-}
-
+/**
+ * Server-side sign-in: the demo accounts, and the backend whenever the page
+ * isn't on the API's own domain (see LoginForm for the direct browser path).
+ */
 export async function loginAction(_: LoginState, fd: FormData): Promise<LoginState> {
   const email = String(fd.get("email") ?? "").trim();
   // One-click demo sign-in (only without a backend): the password stays on the server.

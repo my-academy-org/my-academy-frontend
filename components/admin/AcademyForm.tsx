@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
-import { createAcademyAction, updateAcademyAction } from "@/app/super-admin/actions";
+import { createAcademyAction, updateAcademyAction } from "@/lib/admin/actions";
 import { Notice } from "@/components/dashboard/ui";
 import { useToast } from "@/components/dashboard/Toaster";
 import { Button } from "@/components/ui/Button";

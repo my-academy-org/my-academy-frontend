@@ -1,13 +1,25 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+import { getStatistics, listRecentAcademies } from "@/lib/admin/api";
 import { academyUrl, formatDate, formatNumber } from "@/lib/admin/meta";
-import type { AdminAcademy, PlatformStats } from "@/lib/admin/types";
 import { EmptyState, PageHeader, Panel } from "@/components/dashboard/ui";
-import { AcademyMark, AcademyStatusBadge } from "../ui";
+import { AcademyMark, AcademyStatusBadge, Loading, LoadError } from "../ui";
+import { useApiQuery } from "../useApiQuery";
 
-export function OverviewView({ stats, recent }: { stats: PlatformStats; recent: AdminAcademy[] }) {
+export function OverviewView() {
+  const overview = useApiQuery("overview", async () => {
+    const [stats, recent] = await Promise.all([getStatistics(), listRecentAcademies(5)]);
+    return { stats, recent };
+  });
+
+  if (overview.error) return <LoadError message={overview.error} />;
+  if (!overview.data) return <Loading />;
+
+  const { stats, recent } = overview.data;
   const { academies, owners, students, courses } = stats;
 
   const cards: { label: string; value: number; note: string; href?: string; meter?: number }[] = [

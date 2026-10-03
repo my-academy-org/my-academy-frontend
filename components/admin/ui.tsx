@@ -101,6 +101,18 @@ export function Pagination({ meta, noun, hrefFor }: { meta: PageMeta; noun: stri
   );
 }
 
+/** Placeholder while a page's data is being loaded from the API. */
+export function Loading({ className }: { className?: string }) {
+  return (
+    <div role="status" className={cn("grid place-items-center px-6 py-24 text-sm text-ink-500", className)}>
+      <span className="flex items-center gap-3">
+        <span className="size-4 animate-spin rounded-full border-2 border-line-strong border-t-brand-600" aria-hidden="true" />
+        جارٍ التحميل…
+      </span>
+    </div>
+  );
+}
+
 /** Shown in place of a page whose data couldn't be loaded from the API. */
 export function LoadError({ message }: { message: string }) {
   return (
