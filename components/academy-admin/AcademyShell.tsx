@@ -24,11 +24,13 @@ export function AcademyShell({ children }: { children: ReactNode }) {
           <AcademyLogo name={profile.name} logoUrl={website.logoUrl} color={profile.brandColor} />
           <span className="min-w-0">
             <span className="block truncate text-sm font-extrabold text-ink-950">{profile.name}</span>
-            <span className="block truncate text-xs text-ink-500">
-              <bdi>
-                {profile.slug}.{ROOT_DOMAIN}
-              </bdi>
-            </span>
+            {profile.slug && (
+              <span className="block truncate text-xs text-ink-500">
+                <bdi>
+                  {profile.slug}.{ROOT_DOMAIN}
+                </bdi>
+              </span>
+            )}
           </span>
         </span>
       }
@@ -84,15 +86,17 @@ export function AcademyShell({ children }: { children: ReactNode }) {
         />
       }
       topbarActions={
-        <a
-          href={profile.siteUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold text-ink-800 shadow-card transition-colors hover:border-ink-300"
-        >
-          <Icon name="eye" className="size-4" />
-          <span className="hidden sm:inline">معاينة الأكاديمية</span>
-        </a>
+        profile.siteUrl && (
+          <a
+            href={profile.siteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-line-strong bg-white px-3 text-sm font-semibold text-ink-800 shadow-card transition-colors hover:border-ink-300"
+          >
+            <Icon name="eye" className="size-4" />
+            <span className="hidden sm:inline">معاينة الأكاديمية</span>
+          </a>
+        )
       }
     >
       {children}

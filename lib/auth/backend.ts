@@ -117,3 +117,29 @@ export async function clearSession(response: Response, token: string | undefined
   for (const cookie of forwarded) response.headers.append("set-cookie", cookie);
   return response;
 }
+
+export type BackendTenant = { name?: string; slug?: string; plan?: string; status?: string; templateType?: string };
+
+/**
+ * The academy behind an owner's `tenantId`. docs/auth-api.md only gives the
+ * id, so this asks GET /tenants/:id — not documented yet — and tolerates any
+ * failure: the dashboard still opens, just without the academy's name and
+ * subdomain.
+ */
+export async function backendTenant(token: string, tenantId: number): Promise<BackendTenant | null> {
+  try {
+    const res = await fetch(`${ACADEMY_API_URL}/tenants/${tenantId}`, { headers: accessTokenHeader(token), cache: "no-store" });
+    if (!res.ok) {
+      console.error(`[auth] GET /tenants/${tenantId} → ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as Record<string, unknown>;
+    const tenant = ((data.tenant ?? data) || {}) as Record<string, unknown>;
+    const academy = (tenant.academy ?? {}) as { template?: { type?: unknown } };
+    const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+    return { name: text(tenant.name), slug: text(tenant.slug), plan: text(tenant.plan), status: text(tenant.status), templateType: text(academy.template?.type) };
+  } catch (error) {
+    console.error(`[auth] GET /tenants/${tenantId} failed`, error);
+    return null;
+  }
+}
