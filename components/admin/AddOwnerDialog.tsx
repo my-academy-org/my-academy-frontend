@@ -179,7 +179,7 @@ export function AddOwnerDialog({
               </Field>
               <p className="text-xs leading-5 text-ink-500">
                 أو أرسل للمالك{" "}
-                <a href={`/verify-otp?email=${encodeURIComponent(email.trim())}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:text-brand-800">
+                <a href={`/verify-otp?email=${encodeURIComponent(email.trim())}&role=ACADEMY_ADMIN`} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:text-brand-800">
                   صفحة تأكيد البريد
                 </a>{" "}
                 ليُدخل الرمز بنفسه.

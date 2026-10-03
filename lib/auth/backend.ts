@@ -89,35 +89,6 @@ export async function backendCurrentUser(token: string): Promise<BackendUser | n
   }
 }
 
-export type OtpResult = { ok: true } | { ok: false; reason: "expired" | "invalid" | "unavailable" };
-
-/**
- * POST /auth/academy-admin/verify-otp — second step of adding an academy owner.
- * Needs no session: it creates the account (INACTIVE until first sign-in) and
- * emails the credentials. OTP failures come back as 422.
- */
-export async function verifyAcademyAdminOtp(email: string, otp: string): Promise<OtpResult> {
-  try {
-    const res = await fetch(`${ACADEMY_API_URL}/auth/academy-admin/verify-otp`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      // `otp` is sent as a string.
-      body: JSON.stringify({ email, otp }),
-      cache: "no-store",
-    });
-    if (res.ok) return { ok: true };
-    const { message } = (await res.json().catch(() => ({}))) as { message?: string | string[] };
-    const text = Array.isArray(message) ? message.join(" ") : (message ?? "");
-    if (text.includes("expired")) return { ok: false, reason: "expired" };
-    if (res.status === 422 || res.status === 400) return { ok: false, reason: "invalid" };
-    console.error(`[auth] POST /auth/academy-admin/verify-otp → ${res.status}`, text);
-    return { ok: false, reason: "unavailable" };
-  } catch (error) {
-    console.error("[auth] POST /auth/academy-admin/verify-otp failed", error);
-    return { ok: false, reason: "unavailable" };
-  }
-}
-
 /**
  * POST /auth/logout — safe to call even when the session already expired.
  * Returns the API's own Set-Cookie headers (they clear `access_token` on the
