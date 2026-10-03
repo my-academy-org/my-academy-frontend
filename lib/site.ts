@@ -205,25 +205,15 @@ export const templates: {
 /* Dashboards                                                          */
 /* ------------------------------------------------------------------ */
 
+export type DashboardRole = Exclude<Role, "admin">;
+
 export const dashboardRoles: {
-  id: Role;
+  id: DashboardRole;
   icon: IconName;
   title: string;
   summary: string;
   capabilities: string[];
 }[] = [
-  {
-    id: "admin",
-    icon: "shield",
-    title: "لوحة المشرف العام",
-    summary: "إدارة المنصة بالكامل: الأكاديميات والمعلّمين والخطط والقوالب.",
-    capabilities: [
-      "إنشاء الأكاديميات وحسابات المعلّمين",
-      "تعيين النطاقات الفرعية والقوالب",
-      "إدارة خطط Basic و Pro لكل أكاديمية",
-      "تنفيذ تعديلات المحتوى لأكاديميات Basic",
-    ],
-  },
   {
     id: "teacher",
     icon: "teacher",
