@@ -283,9 +283,13 @@ export async function getAcademyLandingPage(academyId: number) {
 }
 
 /**
- * There is no Super Admin create: POST /landing-page takes the academy from
- * the session's tenant, which a Super Admin doesn't have.
+ * POST /landing-page for one academy. The body only carries the documented
+ * fields (anything else is a 400), so the academy goes in the query string.
  */
+export function createLandingPage(academyId: number, input: LandingPageInput) {
+  return request<{ message: string; landingPage: LandingPageAdmin }>("/landing-page", { method: "POST", query: { academyId }, body: pickLandingInput(input) });
+}
+
 export function updateLandingPage(id: number, input: LandingPageInput) {
   return request<{ message: string }>(`/landing-page/${id}`, { method: "PATCH", body: pickLandingInput(input) });
 }

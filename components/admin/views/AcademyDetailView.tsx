@@ -118,7 +118,12 @@ function AcademyDetail({ academy, openAddOwner }: { academy: AdminAcademyDetail;
                     </Link>
                   </span>
                 ) : (
-                  <span className="text-ink-400">لم تُنشأ بعد</span>
+                  <span className="flex flex-wrap items-center gap-3">
+                    <span className="text-ink-400">لم تُنشأ بعد</span>
+                    <Link href={`/super-admin/academies/${academy.id}/landing`} className="text-sm font-semibold text-brand-700 hover:text-brand-800">
+                      إنشاء الصفحة
+                    </Link>
+                  </span>
                 )}
               </DetailRow>
               <DetailRow label="تاريخ الإنشاء">{formatDate(academy.createdAt)}</DetailRow>
