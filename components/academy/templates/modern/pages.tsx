@@ -54,7 +54,7 @@ export function Home({ site }: P) {
             </div>
             <div className="mt-12 flex gap-10 border-t border-slate-100 pt-8">
               <Stat value={site.courses.length} label="الدورات" />
-              <Stat value={totalLessons(site.courses)} label="إجمالي الدروس" />
+              {totalLessons(site.courses) > 0 && <Stat value={totalLessons(site.courses)} label="إجمالي الدروس" />}
               {teacher.experienceYears != null && <Stat value={`+${teacher.experienceYears}`} label="سنوات الخبرة" />}
             </div>
           </div>
@@ -77,22 +77,24 @@ export function Home({ site }: P) {
       </section>
 
       {/* Value statement */}
-      <section className="bg-slate-50/80 py-20 sm:py-24">
-        <div className={cn(container, "max-w-4xl text-center")}>
-          <h2 className="text-3xl leading-[1.4] font-extrabold text-balance sm:text-4xl">{about.title}</h2>
-          <p className="mx-auto mt-6 max-w-3xl text-lg leading-9 whitespace-pre-line text-slate-600">{about.description}</p>
-          {!!site.landing.benefits?.length && (
-            <ul className="mt-10 flex flex-wrap justify-center gap-2.5">
-              {site.landing.benefits.map((b) => (
-                <li key={b} className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-100">
-                  <Icon name="check" className="size-4 text-(--accent)" />
-                  {b}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+      {about.description && (
+        <section className="bg-slate-50/80 py-20 sm:py-24">
+          <div className={cn(container, "max-w-4xl text-center")}>
+            <h2 className="text-3xl leading-[1.4] font-extrabold text-balance sm:text-4xl">{about.title}</h2>
+            <p className="mx-auto mt-6 max-w-3xl text-lg leading-9 whitespace-pre-line text-slate-600">{about.description}</p>
+            {!!site.landing.benefits?.length && (
+              <ul className="mt-10 flex flex-wrap justify-center gap-2.5">
+                {site.landing.benefits.map((b) => (
+                  <li key={b} className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-100">
+                    <Icon name="check" className="size-4 text-(--accent)" />
+                    {b}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Featured courses */}
       <Section>
@@ -175,7 +177,7 @@ export function Courses({ site }: P) {
 
 export function CourseDetails({ site, course }: P & { course: Course }) {
   const meta = [
-    { icon: "play" as const, label: formatLessons(course.lessonCount) },
+    course.lessonCount != null ? { icon: "play" as const, label: formatLessons(course.lessonCount) } : null,
     course.examCount ? { icon: "exam" as const, label: formatExams(course.examCount) } : null,
     course.durationHours ? { icon: "clock" as const, label: formatHours(course.durationHours) } : null,
     course.level ? { icon: "progress" as const, label: course.level } : null,

@@ -92,10 +92,12 @@ export function CourseCard({ course }: { course: Course }) {
         <h3 className="text-lg font-extrabold">{course.title}</h3>
         <p className="mt-2 line-clamp-2 flex-1 text-[0.9375rem] leading-7 text-slate-600">{course.shortDescription}</p>
         <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-500">
-            <Icon name="play" className="size-4" />
-            {formatLessons(course.lessonCount)}
-          </span>
+          {course.lessonCount != null && (
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-500">
+              <Icon name="play" className="size-4" />
+              {formatLessons(course.lessonCount)}
+            </span>
+          )}
           <span className="flex items-center gap-1 text-sm font-bold text-(--accent)">
             عرض الدورة
             <Icon name="arrow" className="size-4 transition-transform group-hover:-translate-x-1 rtl:rotate-180" />

@@ -42,8 +42,8 @@ export function Home({ site }: P) {
   const facts = [
     teacher.experienceYears != null && { value: arabicDigits(teacher.experienceYears), label: "سنة من الخبرة" },
     { value: arabicDigits(site.courses.length), label: "مقرراً دراسياً" },
-    { value: arabicDigits(totalLessons(site.courses)), label: "محاضرة مسجّلة" },
-    { value: arabicDigits(totalExams(site.courses)), label: "اختباراً" },
+    totalLessons(site.courses) > 0 && { value: arabicDigits(totalLessons(site.courses)), label: "محاضرة مسجّلة" },
+    totalExams(site.courses) > 0 && { value: arabicDigits(totalExams(site.courses)), label: "اختباراً" },
   ].filter(Boolean) as { value: string; label: string }[];
 
   return (
@@ -89,14 +89,16 @@ export function Home({ site }: P) {
       </section>
 
       {/* Academic introduction */}
-      <Section>
-        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-          <SectionTitle index={++n} label="التعريف" title={about.title} />
-          <div className="lg:pt-10">
-            <Prose text={about.description} lead />
+      {about.description && (
+        <Section>
+          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+            <SectionTitle index={++n} label="التعريف" title={about.title} />
+            <div className="lg:pt-10">
+              <Prose text={about.description} lead />
+            </div>
           </div>
-        </div>
-      </Section>
+        </Section>
+      )}
 
       {/* Teacher: qualifications & experience */}
       <Section tone="white">
@@ -222,7 +224,7 @@ export function CourseDetails({ site, course }: P & { course: Course }) {
   const facts = [
     { label: "المستوى", value: course.level },
     { label: "التصنيف", value: course.category },
-    { label: "عدد المحاضرات", value: arabicDigits(course.lessonCount) },
+    { label: "عدد المحاضرات", value: course.lessonCount != null ? arabicDigits(course.lessonCount) : undefined },
     { label: "عدد الاختبارات", value: course.examCount != null ? arabicDigits(course.examCount) : undefined },
     { label: "المدة الإجمالية", value: course.durationHours ? arabicDigits(formatHours(course.durationHours)) : undefined },
     { label: "المعلّم", value: site.landing.teacher.name },

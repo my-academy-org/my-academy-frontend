@@ -114,7 +114,7 @@ export function CourseTable({ courses, startIndex = 1 }: { courses: Course[]; st
               {/* Mobile meta row */}
               <dl className="col-start-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[#1b2333]/70 lg:contents">
                 <Meta label="المستوى" value={c.level ?? "—"} />
-                <Meta label="المحاضرات" value={arabicDigits(c.lessonCount)} center />
+                <Meta label="المحاضرات" value={c.lessonCount != null ? arabicDigits(c.lessonCount) : "—"} center />
                 <Meta label="الاختبارات" value={c.examCount != null ? arabicDigits(c.examCount) : "—"} center />
                 <Meta label="المدة" value={c.durationHours ? arabicDigits(formatHours(c.durationHours)) : "—"} center />
               </dl>

@@ -84,14 +84,16 @@ export function Home({ site }: P) {
       </Section>
 
       {/* Positioning */}
-      <section className="relative overflow-hidden border-y border-white/8 py-24 sm:py-32">
-        <Glow className="start-1/3" />
-        <div className={cn(container, "relative max-w-4xl text-center")}>
-          <Icon name="quote" className="mx-auto size-10 text-(--accent)" />
-          <h2 className={cn(display, "mt-8 text-3xl leading-[1.5] text-white sm:text-[2.75rem]")}>{about.title}</h2>
-          <p className="mx-auto mt-8 max-w-2xl text-lg leading-9 text-white/55">{about.description}</p>
-        </div>
-      </section>
+      {about.description && (
+        <section className="relative overflow-hidden border-y border-white/8 py-24 sm:py-32">
+          <Glow className="start-1/3" />
+          <div className={cn(container, "relative max-w-4xl text-center")}>
+            <Icon name="quote" className="mx-auto size-10 text-(--accent)" />
+            <h2 className={cn(display, "mt-8 text-3xl leading-[1.5] text-white sm:text-[2.75rem]")}>{about.title}</h2>
+            <p className="mx-auto mt-8 max-w-2xl text-lg leading-9 text-white/55">{about.description}</p>
+          </div>
+        </section>
+      )}
 
       {/* Featured courses */}
       <Section>
@@ -130,21 +132,23 @@ export function Home({ site }: P) {
       )}
 
       {/* Instructor story */}
-      <Section>
-        <div className="grid gap-14 lg:grid-cols-[1fr_1.4fr] lg:gap-24">
-          <div>
-            <Eyebrow>القصة</Eyebrow>
-            <Heading className="mt-6">لماذا أدرّس بهذه الطريقة</Heading>
-            {teacher.experienceYears != null && (
-              <p className="mt-12">
-                <span className={cn(display, "block text-8xl text-(--accent)")} dir="ltr">{teacher.experienceYears}+</span>
-                <span className="mt-2 block text-white/50">سنوات من التدريب والتدريس</span>
-              </p>
-            )}
+      {teacher.bio && (
+        <Section>
+          <div className="grid gap-14 lg:grid-cols-[1fr_1.4fr] lg:gap-24">
+            <div>
+              <Eyebrow>القصة</Eyebrow>
+              <Heading className="mt-6">لماذا أدرّس بهذه الطريقة</Heading>
+              {teacher.experienceYears != null && (
+                <p className="mt-12">
+                  <span className={cn(display, "block text-8xl text-(--accent)")} dir="ltr">{teacher.experienceYears}+</span>
+                  <span className="mt-2 block text-white/50">سنوات من التدريب والتدريس</span>
+                </p>
+              )}
+            </div>
+            <Story text={teacher.bio} />
           </div>
-          <Story text={teacher.bio} />
-        </div>
-      </Section>
+        </Section>
+      )}
 
       {/* Learning experience */}
       <section className="border-t border-white/8 py-24 sm:py-32">
