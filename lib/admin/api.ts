@@ -283,11 +283,11 @@ export async function getAcademyLandingPage(academyId: number) {
 }
 
 /**
- * POST /landing-page for one academy. The body only carries the documented
- * fields (anything else is a 400), so the academy goes in the query string.
+ * POST /landing-page/:academyId — the Super Admin's create, for any academy.
+ * (The owner's POST /landing-page takes the academy from the session.)
  */
 export function createLandingPage(academyId: number, input: LandingPageInput) {
-  return request<{ message: string; landingPage: LandingPageAdmin }>("/landing-page", { method: "POST", query: { academyId }, body: pickLandingInput(input) });
+  return request<{ message: string; landingPage: LandingPageAdmin }>(`/landing-page/${academyId}`, { method: "POST", body: pickLandingInput(input) });
 }
 
 export function updateLandingPage(id: number, input: LandingPageInput) {
