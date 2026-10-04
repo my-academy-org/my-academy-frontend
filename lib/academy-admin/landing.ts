@@ -1,5 +1,5 @@
 import { ACADEMY_API_URL } from "@/lib/academy/config";
-import { LANDING_FIELDS, type LandingPageAdmin, type LandingPageInput } from "@/lib/academy/landing";
+import type { LandingFailure, LandingPageAdmin, LandingPageInput } from "@/lib/academy/landing";
 import { accessTokenHeader } from "@/lib/auth/backend";
 
 /**
@@ -9,15 +9,6 @@ import { accessTokenHeader } from "@/lib/auth/backend";
  */
 
 export type LandingLoad = { ok: true; page: LandingPageAdmin | null } | { ok: false; message: string };
-
-export type LandingFailure = {
-  ok: false;
-  /** HTTP status, or 0 when the API couldn't be reached. */
-  status: number;
-  message: string;
-  /** The academy's plan doesn't allow a landing page (BASIC). */
-  upgrade?: boolean;
-};
 
 /** GET /landing-page — an owner gets at most one item (their academy's page). */
 export async function fetchOwnLandingPage(token: string): Promise<LandingLoad> {
@@ -33,15 +24,6 @@ export async function fetchOwnLandingPage(token: string): Promise<LandingLoad> {
     console.error("[landing] GET /landing-page failed", error);
     return { ok: false, message: "تعذّر الاتصال بالخادم." };
   }
-}
-
-/** Only the documented body keys: any other key (id, academyId, createdAt…) is rejected with 400. */
-export function pickLandingInput(input: LandingPageInput): LandingPageInput {
-  const body: Record<string, unknown> = {};
-  for (const key of [...LANDING_FIELDS, "published"] as const) {
-    if (input[key] !== undefined) body[key] = input[key];
-  }
-  return body as LandingPageInput;
 }
 
 export async function landingRequest(token: string, path: string, method: "POST" | "PATCH" | "DELETE", body?: LandingPageInput): Promise<{ ok: true } | LandingFailure> {
