@@ -111,7 +111,12 @@ function AcademyDetail({ academy, openAddOwner }: { academy: AdminAcademyDetail;
               <DetailRow label="العنوان">{academy.address || empty}</DetailRow>
               <DetailRow label="صفحة الهبوط">
                 {academy.landingPage ? (
-                  <StatusPill tone={academy.landingPage.published ? "success" : "neutral"}>{academy.landingPage.published ? "منشورة" : "غير منشورة"}</StatusPill>
+                  <span className="flex flex-wrap items-center gap-3">
+                    <StatusPill tone={academy.landingPage.published ? "success" : "neutral"}>{academy.landingPage.published ? "منشورة" : "غير منشورة"}</StatusPill>
+                    <Link href={`/super-admin/academies/${academy.id}/landing`} className="text-sm font-semibold text-brand-700 hover:text-brand-800">
+                      تعديل المحتوى
+                    </Link>
+                  </span>
                 ) : (
                   <span className="text-ink-400">لم تُنشأ بعد</span>
                 )}

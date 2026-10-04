@@ -84,6 +84,27 @@ export const LANDING_FIELDS: (keyof LandingPageContent)[] = [
   "footerText",
 ];
 
+/** Only the documented body keys: any other key (id, academyId, createdAt…) is rejected with 400. */
+export function pickLandingInput(input: LandingPageInput): LandingPageInput {
+  const body: Record<string, unknown> = {};
+  for (const key of [...LANDING_FIELDS, "published"] as const) {
+    if (input[key] !== undefined) body[key] = input[key];
+  }
+  return body as LandingPageInput;
+}
+
+export type LandingFailure = {
+  ok: false;
+  /** HTTP status, or 0 when the API couldn't be reached. */
+  status: number;
+  message: string;
+  /** The academy's plan doesn't allow a landing page (BASIC). */
+  upgrade?: boolean;
+};
+
+/** Outcome of a landing-page write; `page` is undefined when the write succeeded but reloading the page failed. */
+export type LandingResult = { ok: true; page?: LandingPageAdmin | null } | LandingFailure;
+
 const FEATURE_ICONS = new Set<FeatureIcon>(["video", "exam", "progress", "support", "certificate", "schedule", "materials", "community", "device"]);
 
 const text = (value: string | null | undefined) => value?.trim() || undefined;

@@ -2,9 +2,9 @@
 
 import { updateTag } from "next/cache";
 import { academyTag } from "@/lib/academy/data";
-import type { LandingPageAdmin, LandingPageInput } from "@/lib/academy/landing";
+import { pickLandingInput, type LandingFailure, type LandingPageInput, type LandingResult } from "@/lib/academy/landing";
 import { getAccessToken, getSession } from "@/lib/auth/server";
-import { fetchOwnLandingPage, landingRequest, pickLandingInput, type LandingFailure } from "./landing";
+import { fetchOwnLandingPage, landingRequest } from "./landing";
 
 /**
  * Landing-page mutations from the owner dashboard. The academy always comes
@@ -13,9 +13,6 @@ import { fetchOwnLandingPage, landingRequest, pickLandingInput, type LandingFail
  * copy is invalidated.
  */
 
-/** `page` is undefined when the write succeeded but reloading the page failed. */
-export type LandingActionResult = { ok: true; page?: LandingPageAdmin | null } | LandingFailure;
-
 async function ownerToken() {
   const session = await getSession();
   return session?.role === "ACADEMY_ADMIN" ? await getAccessToken() : undefined;
@@ -23,7 +20,7 @@ async function ownerToken() {
 
 const expired: LandingFailure = { ok: false, status: 401, message: "انتهت الجلسة. سجّل الدخول مرة أخرى." };
 
-async function afterWrite(token: string, slug: string | undefined): Promise<LandingActionResult> {
+async function afterWrite(token: string, slug: string | undefined): Promise<LandingResult> {
   const fresh = await fetchOwnLandingPage(token);
   const site = slug ?? (fresh.ok ? fresh.page?.academy.tenant.slug : undefined);
   if (site) updateTag(academyTag(site));
@@ -32,7 +29,7 @@ async function afterWrite(token: string, slug: string | undefined): Promise<Land
 }
 
 /** POST /landing-page when `id` is null, PATCH /landing-page/:id otherwise. */
-export async function saveLandingPage(id: number | null, input: LandingPageInput, slug?: string): Promise<LandingActionResult> {
+export async function saveLandingPage(id: number | null, input: LandingPageInput, slug?: string): Promise<LandingResult> {
   const token = await ownerToken();
   if (!token) return expired;
   const body = pickLandingInput(input);
@@ -40,9 +37,19 @@ export async function saveLandingPage(id: number | null, input: LandingPageInput
   return res.ok ? afterWrite(token, slug) : res;
 }
 
-export async function deleteLandingPage(id: number, slug?: string): Promise<LandingActionResult> {
+export async function deleteLandingPage(id: number, slug?: string): Promise<LandingResult> {
   const token = await ownerToken();
   if (!token) return expired;
   const res = await landingRequest(token, `/landing-page/${id}`, "DELETE");
   return res.ok ? afterWrite(token, slug) : res;
+}
+
+/**
+ * After the Super Admin edits a landing page (straight from the browser to
+ * the API), drop the public site's cached copy so the change shows at once.
+ */
+export async function refreshAcademySite(slug: string) {
+  const session = await getSession();
+  if (session?.role !== "SUPER_ADMIN" || !/^[a-z0-9-]+$/.test(slug)) return;
+  updateTag(academyTag(slug));
 }

@@ -1,4 +1,5 @@
 import { PUBLIC_API_URL } from "@/lib/academy/config";
+import { pickLandingInput, type LandingPageAdmin, type LandingPageInput } from "@/lib/academy/landing";
 import type { Role } from "@/lib/auth/session";
 import type {
   AcademyList,
@@ -33,7 +34,7 @@ export class ApiError extends Error {
 }
 
 type Query = Record<string, string | number | undefined>;
-type RequestOptions = { method?: "GET" | "POST" | "DELETE"; body?: unknown; query?: Query; /** A 401 here isn't an expired session (public endpoint). */ public?: boolean };
+type RequestOptions = { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; query?: Query; /** A 401 here isn't an expired session (public endpoint). */ public?: boolean };
 
 /** The session lasts one hour with no refresh token: a 401 means signing in again. */
 function redirectToLogin() {
@@ -266,4 +267,29 @@ export function resendInvitation(id: number) {
 
 export function setOwnerStatus(id: number, action: "activate" | "suspend") {
   return request<{ id: number; status: OwnerStatus }>(`/users/academy-admins/${id}/${action}`, { method: "POST" });
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing pages (docs/landing-page-api.md §4)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An academy's landing page. There is no per-academy endpoint: GET
+ * /landing-page returns every academy's page to the Super Admin.
+ */
+export async function getAcademyLandingPage(academyId: number) {
+  const pages = await request<LandingPageAdmin[]>("/landing-page");
+  return pages.find((p) => p.academyId === academyId) ?? null;
+}
+
+/**
+ * There is no Super Admin create: POST /landing-page takes the academy from
+ * the session's tenant, which a Super Admin doesn't have.
+ */
+export function updateLandingPage(id: number, input: LandingPageInput) {
+  return request<{ message: string }>(`/landing-page/${id}`, { method: "PATCH", body: pickLandingInput(input) });
+}
+
+export function deleteLandingPage(id: number) {
+  return request<{ message: string }>(`/landing-page/${id}`, { method: "DELETE" });
 }
