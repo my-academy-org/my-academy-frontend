@@ -20,7 +20,7 @@ export function formatMinutes(min?: number) {
 }
 
 export function totalLessons(courses: Course[]) {
-  return courses.reduce((sum, c) => sum + c.lessonCount, 0);
+  return courses.reduce((sum, c) => sum + (c.lessonCount ?? 0), 0);
 }
 
 /** Paragraphs from a multi-line string coming from the CMS. */

@@ -94,7 +94,7 @@ export function CourseRow({ course, index }: { course: Course; index: number }) 
         <h3 className={cn(display, "mt-5 text-3xl leading-[1.35] text-white sm:text-4xl")}>{course.title}</h3>
         <p className="mt-4 max-w-md text-lg leading-8 text-white/55">{course.shortDescription}</p>
         <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/45">
-          <li>{formatLessons(course.lessonCount)}</li>
+          {course.lessonCount != null && <li>{formatLessons(course.lessonCount)}</li>}
           {course.durationHours && <li>{formatHours(course.durationHours)}</li>}
           {course.level && <li>{course.level}</li>}
         </ul>
@@ -109,7 +109,7 @@ export function CourseRow({ course, index }: { course: Course; index: number }) 
 
 export function CourseFacts({ course }: { course: Course }) {
   const items = [
-    { label: "الدروس", value: formatLessons(course.lessonCount) },
+    course.lessonCount != null ? { label: "الدروس", value: formatLessons(course.lessonCount) } : null,
     course.examCount ? { label: "الاختبارات", value: formatExams(course.examCount) } : null,
     course.durationHours ? { label: "المدة", value: formatHours(course.durationHours) } : null,
     course.level ? { label: "المستوى", value: course.level } : null,

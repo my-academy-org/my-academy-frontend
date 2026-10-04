@@ -135,7 +135,8 @@ export interface Course {
   shortDescription: string;
   description: string;
   image?: Media;
-  lessonCount: number;
+  /** Unknown for courses from the landing-page API; templates leave it out then. */
+  lessonCount?: number;
   examCount?: number;
   durationHours?: number;
   level?: string;

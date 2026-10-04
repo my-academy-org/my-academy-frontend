@@ -115,7 +115,7 @@ export function buildAcademySeed(site: AcademySite): AcademySeed {
     const source = c.curriculum?.flatMap((s) => s.lessons) ?? [];
     const list = source.length
       ? source.map((l) => ({ id: l.id, title: l.title, minutes: l.durationMinutes ?? 15, preview: !!l.isPreview }))
-      : Array.from({ length: Math.min(c.lessonCount, 5) }, (_, i) => ({
+      : Array.from({ length: Math.min(c.lessonCount ?? 0, 5) }, (_, i) => ({
           id: `${c.id}-l${i + 1}`,
           title: i === 0 ? `مقدمة دورة ${c.title}` : ["المفاهيم الأساسية", "أمثلة تطبيقية", "حلّ التمارين", "مراجعة الوحدة"][(i - 1) % 4],
           minutes: 12 + ((i * 7) % 20),

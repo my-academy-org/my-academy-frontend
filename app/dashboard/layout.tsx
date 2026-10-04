@@ -7,7 +7,7 @@ import { ToastProvider } from "@/components/dashboard/Toaster";
 import { Notice } from "@/components/dashboard/ui";
 import { ACADEMY_API_URL } from "@/lib/academy/config";
 import { getAcademySite } from "@/lib/academy/data";
-import type { TemplateId } from "@/lib/academy/types";
+import { TEMPLATE_BY_TYPE } from "@/lib/academy/landing";
 import { buildAcademySeed, emptyAcademySeed } from "@/lib/academy-admin/seed";
 import type { AcademySeed } from "@/lib/academy-admin/types";
 import { backendTenant } from "@/lib/auth/backend";
@@ -19,9 +19,6 @@ export const metadata: Metadata = {
   title: { default: "لوحة الأكاديمية", template: "%s · لوحة الأكاديمية" },
   robots: { index: false, follow: false },
 };
-
-/** Backend template type → the site template that renders it. */
-const TEMPLATES: Record<string, TemplateId> = { MODERN: "MODERN", EDUCATION: "ACADEMIC", CORPORATE: "PREMIUM" };
 
 /**
  * With a backend, an ACADEMY_ADMIN account only exists linked to an academy
@@ -37,7 +34,7 @@ async function backendSeed(session: Session): Promise<AcademySeed> {
     slug: tenant?.slug ?? "",
     name: tenant?.name ?? "أكاديميتي",
     plan: tenant?.plan === "PRO" ? "PRO" : "BASIC",
-    template: TEMPLATES[tenant?.templateType ?? ""] ?? "MODERN",
+    template: TEMPLATE_BY_TYPE[tenant?.templateType ?? ""] ?? "MODERN",
     owner: { name: session.name, email: session.email },
   });
   if (tenant?.slug) seed.profile.siteUrl = await academyOrigin(tenant.slug);
@@ -79,7 +76,7 @@ export default async function AcademyDashboardLayout({ children }: LayoutProps<"
           <AcademyShell>
             {ACADEMY_API_URL && (
               <Notice tone="warning" className="mb-6">
-                لوحة الأكاديمية لم تُربط بالخادم بعد: ما تضيفه أو تعدّله هنا لا يُحفظ حالياً.
+                لوحة الأكاديمية لم تُربط بالخادم بعد: ما تضيفه أو تعدّله هنا لا يُحفظ حالياً، باستثناء صفحة الهبوط في «موقع الأكاديمية».
               </Notice>
             )}
             {children}

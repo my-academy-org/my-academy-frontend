@@ -12,6 +12,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 import { ROOT_DOMAIN } from "@/lib/academy/config";
+import type { LandingLoad } from "@/lib/academy-admin/landing";
 import { dash } from "@/lib/academy-admin/meta";
 import { planLabels } from "@/lib/academy-admin/plan";
 import type { MediaItem, WebsiteContent } from "@/lib/academy-admin/types";
@@ -20,14 +21,21 @@ import { templates as templateInfo } from "@/lib/site";
 import { useAcademy } from "../AcademyStore";
 import { AcademyLogo, CourseThumb } from "../parts";
 import { PlanGate, ProBadge, useUpgrade } from "../Upgrade";
+import { LandingPageEditor } from "./LandingPageEditor";
 
 type Tab = "content" | "courses" | "media";
 
 const templateKey = { MODERN: "modern", ACADEMIC: "academic", PREMIUM: "premium" } as const;
 
-export function WebsiteView() {
+/**
+ * `landing` is set when the dashboard runs against the backend: the content
+ * tab then edits the academy's landing page through the API
+ * (docs/landing-page-api.md) instead of the local sample content.
+ */
+export function WebsiteView({ landing }: { landing?: LandingLoad }) {
   const { profile, website, can } = useAcademy();
   const [tab, setTab] = useState<Tab>("content");
+  const [page, setPage] = useState(landing?.ok ? landing.page : null);
   const editable = can("websiteEditor");
   const template = templateInfo.find((t) => t.id === templateKey[profile.template])!;
   const url = `${profile.slug}.${ROOT_DOMAIN}`;
@@ -59,10 +67,20 @@ export function WebsiteView() {
             <span className="block text-xs text-ink-500">يُغيَّر القالب عبر فريق المنصة.</span>
           </SiteFact>
           <SiteFact label="الحالة">
-            <span className="inline-flex items-center gap-1.5 font-semibold text-brand-700">
-              <span className="size-1.5 rounded-full bg-brand-500" aria-hidden="true" />
-              منشور ومتاح للطلاب
-            </span>
+            {landing && !page?.published ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 font-semibold text-ink-700">
+                  <span className="size-1.5 rounded-full bg-ink-400" aria-hidden="true" />
+                  {page ? "صفحة الهبوط غير منشورة" : "لا توجد صفحة هبوط"}
+                </span>
+                <span className="block text-xs text-ink-500">يعرض الموقع صفحة افتراضية من بيانات الأكاديمية.</span>
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-brand-700">
+                <span className="size-1.5 rounded-full bg-brand-500" aria-hidden="true" />
+                منشور ومتاح للطلاب
+              </span>
+            )}
           </SiteFact>
           <SiteFact label="إدارة المحتوى">
             <span className="font-semibold text-ink-900">{editable ? "مباشرةً من لوحتك" : "عبر فريق المنصة"}</span>
@@ -83,7 +101,16 @@ export function WebsiteView() {
         ]}
       />
 
-      {tab === "content" && (editable ? <ContentEditor /> : <ContentReadOnly />)}
+      {tab === "content" &&
+        (!editable ? (
+          <ContentReadOnly />
+        ) : !landing ? (
+          <ContentEditor />
+        ) : landing.ok ? (
+          <LandingPageEditor page={page} onChange={setPage} />
+        ) : (
+          <EmptyState icon="alert" title="تعذّر تحميل صفحة الهبوط" description={landing.message} />
+        ))}
       {tab === "courses" && <CoursesOnSite editable={editable} />}
       {tab === "media" && (can("mediaLibrary") ? <MediaLibrary /> : <PlanGate feature="mediaLibrary" />)}
     </>
