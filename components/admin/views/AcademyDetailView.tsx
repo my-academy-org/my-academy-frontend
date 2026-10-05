@@ -55,6 +55,10 @@ function AcademyDetail({ academy, openAddOwner }: { academy: AdminAcademyDetail;
               <Icon name="edit" className="size-4" />
               تعديل
             </Button>
+            <Button href={`/super-admin/academies/${academy.id}/landing`} variant="secondary">
+              <Icon name={academy.landingPage ? "layout" : "plus"} className="size-4" />
+              {academy.landingPage ? "تعديل صفحة الهبوط" : "إنشاء صفحة الهبوط"}
+            </Button>
             {academy.status === "ACTIVE" ? (
               <Button variant="secondary" onClick={() => suspend(academy)} className="text-red-600 hover:text-red-700">
                 <Icon name="ban" className="size-4" />
