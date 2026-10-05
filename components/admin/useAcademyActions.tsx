@@ -81,6 +81,7 @@ export function useAcademyActions({ onDeleted }: { onDeleted?: () => void } = {}
   const menuItems = (a: Target, { includeView = true } = {}): MenuItem[] => [
     ...(includeView ? [{ label: "عرض التفاصيل", icon: "eye" as const, href: `/super-admin/academies/${a.id}` }] : []),
     { label: "تعديل", icon: "edit", href: `/super-admin/academies/${a.id}/edit` },
+    { label: "صفحة الهبوط", icon: "layout", href: `/super-admin/academies/${a.id}/landing` },
     a.status === "ACTIVE"
       ? { label: "إيقاف", icon: "ban", onSelect: () => suspend(a), separated: true }
       : { label: "تفعيل", icon: "power", onSelect: () => activate(a), separated: true },
