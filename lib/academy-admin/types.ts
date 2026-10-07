@@ -8,7 +8,9 @@ import type { Plan, TemplateId } from "@/lib/academy/types";
 
 export type { Plan };
 
-export type CourseStatus = "DRAFT" | "PUBLISHED";
+/** `ARCHIVED` only comes from the API: hidden from students, kept for its history. */
+export type CourseStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type LessonStatus = CourseStatus;
 
 export interface DashCourse {
   id: string;
@@ -44,6 +46,10 @@ export interface DashLesson {
   order: number;
   /** Visible before enrollment on the public course page. */
   isPreview: boolean;
+  /** Students see a lesson only when it and its course are both published. */
+  status: LessonStatus;
+  /** With a backend: the `order` last saved on the server, so a reorder only sends what changed. */
+  savedOrder?: number;
 }
 
 export type StudentStatus = "ACTIVE" | "SUSPENDED";
@@ -165,6 +171,10 @@ export interface DashActivity {
 
 /** Everything the dashboard needs at load time; serialisable so the server layout can pass it to the client store. */
 export interface AcademySeed {
+  /** Courses and lessons come from the API and every change to them is saved there (docs/courses-lessons-api.md). */
+  live?: boolean;
+  /** Why the courses couldn't be loaded from the API. */
+  loadError?: string;
   profile: AcademyProfile;
   courses: DashCourse[];
   lessons: DashLesson[];

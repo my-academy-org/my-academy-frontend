@@ -9,7 +9,7 @@ import { useAcademy } from "./AcademyStore";
 
 /** Publish / unpublish / delete a course, each behind a confirmation. */
 export function useCourseActions({ onDeleted }: { onDeleted?: () => void } = {}) {
-  const { setCourseStatus, deleteCourse, lessonsOf, studentsIn, notify } = useAcademy();
+  const { setCourseStatus, deleteCourse, lessonsOf, studentsIn, notify, live } = useAcademy();
   const { confirm, dialog } = useConfirm();
 
   const publish = (c: DashCourse) => {
@@ -21,11 +21,15 @@ export function useCourseActions({ onDeleted }: { onDeleted?: () => void } = {})
           ستظهر <b className="text-ink-900">{c.title}</b> في موقع الأكاديمية، ويستطيع الطلاب تفعيلها بأكواد التسجيل.
         </>
       ),
-      points: lessonCount === 0 ? ["تنبيه: الدورة لا تحتوي على دروس بعد."] : [`تحتوي على ${formatLessons(lessonCount)}.`],
+      points: [
+        lessonCount === 0 ? "تنبيه: الدورة لا تحتوي على دروس بعد." : `تحتوي على ${formatLessons(lessonCount)}.`,
+        ...(live && lessonCount > 0 ? ["يرى الطلاب الدروس المنشورة فقط."] : []),
+      ],
       confirmLabel: "نشر الدورة",
-      onConfirm: () => {
-        setCourseStatus(c.id, "PUBLISHED");
-        notify(`تم نشر «${c.title}»`);
+      onConfirm: async () => {
+        const res = await setCourseStatus(c.id, "PUBLISHED");
+        if (res.ok) notify(`تم نشر «${c.title}»`);
+        else notify(res.message, "error");
       },
     });
   };
@@ -41,33 +45,61 @@ export function useCourseActions({ onDeleted }: { onDeleted?: () => void } = {})
       ),
       points: enrolled ? [`${formatStudents(enrolled)} مسجّلون فيها يحتفظون بوصولهم إلى الدروس.`] : undefined,
       confirmLabel: "إلغاء النشر",
-      onConfirm: () => {
-        setCourseStatus(c.id, "DRAFT");
-        notify(`أصبحت «${c.title}» مسودة`);
+      onConfirm: async () => {
+        const res = await setCourseStatus(c.id, "DRAFT");
+        if (res.ok) notify(`أصبحت «${c.title}» مسودة`);
+        else notify(res.message, "error");
       },
     });
   };
+
+  /** Offered when the API refuses to delete a course that still has lessons, exams, enrollments or codes. */
+  const archive = (c: DashCourse) =>
+    confirm({
+      title: "لا يمكن حذف الدورة",
+      description: (
+        <>
+          <b className="text-ink-900">{c.title}</b> مرتبطة بدروس أو اختبارات أو اشتراكات أو أكواد تسجيل. يمكنك أرشفتها بدلاً من حذفها.
+        </>
+      ),
+      points: ["الدورة المؤرشفة لا يراها الطلاب، وتبقى بياناتها محفوظة."],
+      confirmLabel: "أرشفة الدورة",
+      onConfirm: async () => {
+        const res = await setCourseStatus(c.id, "ARCHIVED");
+        if (res.ok) notify(`تمت أرشفة «${c.title}»`);
+        else notify(res.message, "error");
+      },
+    });
 
   const remove = (c: DashCourse) => {
     const enrolled = studentsIn(c.id).length;
     confirm({
       title: "حذف الدورة نهائياً",
-      description: (
+      description: live ? (
+        <>
+          سيتم حذف <b className="text-ink-900">{c.title}</b>. لا يمكن التراجع عن ذلك.
+        </>
+      ) : (
         <>
           سيتم حذف <b className="text-ink-900">{c.title}</b> مع دروسها واختباراتها وأكوادها. لا يمكن التراجع عن ذلك.
         </>
       ),
-      points: [
-        `${formatLessons(lessonsOf(c.id).length)} ستُحذف.`,
-        enrolled ? `${formatStudents(enrolled)} سيفقدون الوصول إلى الدورة.` : "لا يوجد طلاب مسجّلون فيها.",
-      ],
+      points: live
+        ? ["تُحذف الدورة الفارغة فقط. إن كانت لها دروس أو اختبارات أو اشتراكات أو أكواد فستُعرض عليك أرشفتها."]
+        : [
+            `${formatLessons(lessonsOf(c.id).length)} ستُحذف.`,
+            enrolled ? `${formatStudents(enrolled)} سيفقدون الوصول إلى الدورة.` : "لا يوجد طلاب مسجّلون فيها.",
+          ],
       confirmText: enrolled ? "حذف" : undefined,
       confirmLabel: "حذف الدورة",
       tone: "danger",
-      onConfirm: () => {
-        deleteCourse(c.id);
-        notify(`تم حذف «${c.title}»`);
-        onDeleted?.();
+      onConfirm: async () => {
+        const res = await deleteCourse(c.id);
+        if (res.ok) {
+          notify(`تم حذف «${c.title}»`);
+          onDeleted?.();
+        } else if (res.status === 409) archive(c);
+        else notify(res.message, "error");
       },
     });
   };

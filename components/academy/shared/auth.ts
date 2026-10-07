@@ -31,5 +31,13 @@ export const authCopy: Record<
   },
 };
 
+/** Why a student sign-in failed. `other-academy`: the account isn't a student of the academy being visited. */
+export const loginErrors = {
+  invalid: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+  "account-suspended": "حسابك موقوف حالياً. تواصل مع إدارة الأكاديمية.",
+  unavailable: "تعذّر تسجيل الدخول الآن. حاول مرة أخرى بعد قليل.",
+  "other-academy": "هذا الحساب غير مسجّل كطالب في هذه الأكاديمية.",
+} as const;
+
 /** Academy owners don't sign in here: they manage their academy from the platform (ROOT_DOMAIN/login → /dashboard). */
 export const TEACHER_LOGIN_NOTE = `صاحب الأكاديمية؟ سجّل الدخول إلى لوحة التحكم من منصة My Academy على ${ROOT_DOMAIN}/login`;

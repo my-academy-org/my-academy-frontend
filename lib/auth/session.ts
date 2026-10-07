@@ -94,6 +94,11 @@ export function homePathFor(role: Role) {
   return role === "SUPER_ADMIN" ? "/super-admin" : role === "ACADEMY_ADMIN" ? "/dashboard" : null;
 }
 
+/** The API doesn't check the subdomain at sign-in, so a student is matched against the academy's tenant here. */
+export function isStudentOf(user: { role: Role; tenantId?: number | null } | null, tenantId: number | undefined) {
+  return !!user && user.role === "STUDENT" && tenantId != null && user.tenantId === tenantId;
+}
+
 /** Only same-site paths under the role's own area are honoured as ?next=. */
 export function safeNext(next: string, home: string) {
   return next.startsWith(`${home}/`) || next === home ? next : home;

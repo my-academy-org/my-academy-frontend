@@ -20,6 +20,7 @@ export function CoursesView() {
   const [status, setStatus] = useState<"ALL" | CourseStatus>("ALL");
 
   const q = query.trim().toLowerCase();
+  const archived = courses.filter((c) => c.status === "ARCHIVED").length;
   const rows = [...courses]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .filter((c) => status === "ALL" || c.status === status)
@@ -62,6 +63,7 @@ export function CoursesView() {
                   { value: "ALL", label: "الكل", count: courses.length },
                   { value: "PUBLISHED", label: "منشورة", count: courses.filter((c) => c.status === "PUBLISHED").length },
                   { value: "DRAFT", label: "مسودة", count: courses.filter((c) => c.status === "DRAFT").length },
+                  ...(archived ? [{ value: "ARCHIVED" as const, label: "مؤرشفة", count: archived }] : []),
                 ]}
               />
               <SearchField value={query} onChange={setQuery} label="بحث في الدورات" placeholder="ابحث باسم الدورة" />

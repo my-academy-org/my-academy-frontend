@@ -1,5 +1,5 @@
 import type { PillTone } from "@/components/dashboard/ui";
-import type { CodeStatus, CourseStatus, Exam, StudentStatus } from "./types";
+import type { CodeStatus, CourseStatus, Exam, LessonStatus, StudentStatus } from "./types";
 
 /** Academy owner dashboard routes on the main platform domain. The academy comes from the session, never the URL. */
 export const dash = {
@@ -9,6 +9,10 @@ export const dash = {
   course: (id: string) => `/dashboard/courses/${id}`,
   editCourse: (id: string) => `/dashboard/courses/${id}/edit`,
   lessons: (courseId?: string) => (courseId ? `/dashboard/lessons?course=${courseId}` : "/dashboard/lessons"),
+  newLesson: (courseId: string) => `/dashboard/lessons/new?course=${courseId}`,
+  editLesson: (id: string) => `/dashboard/lessons/${id}/edit`,
+  /** The lesson's video played through this app (lib/academy/video.ts). */
+  lessonVideo: (id: string) => `/dashboard/lessons/${id}/video`,
   students: "/dashboard/students",
   student: (id: string) => `/dashboard/students/${id}`,
   codes: "/dashboard/codes",
@@ -23,6 +27,13 @@ export const dash = {
 export const courseStatus: Record<CourseStatus, { label: string; tone: PillTone }> = {
   PUBLISHED: { label: "منشورة", tone: "success" },
   DRAFT: { label: "مسودة", tone: "neutral" },
+  ARCHIVED: { label: "مؤرشفة", tone: "warning" },
+};
+
+export const lessonStatus: Record<LessonStatus, { label: string; tone: PillTone }> = {
+  PUBLISHED: { label: "منشور", tone: "success" },
+  DRAFT: { label: "مسودة", tone: "neutral" },
+  ARCHIVED: { label: "مؤرشف", tone: "warning" },
 };
 
 export const studentStatus: Record<StudentStatus, { label: string; tone: PillTone }> = {

@@ -25,9 +25,10 @@ export function RedeemCodeButton({ variant = "secondary", label = "تفعيل د
 
 function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { redeemCode, notify } = useStudent();
+  const { redeemCode, notify, live } = useStudent();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
+  const [pending, setPending] = useState(false);
 
   return (
     <Modal
@@ -39,24 +40,30 @@ function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void })
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-          <Button type="submit" form="redeem-form">تفعيل</Button>
+          <Button type="submit" form="redeem-form" disabled={pending}>{pending ? "جارٍ التفعيل…" : "تفعيل"}</Button>
         </>
       }
     >
       <form
         id="redeem-form"
         noValidate
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          const result = redeemCode(code);
+          if (pending) return;
+          setPending(true);
+          const result = await redeemCode(code);
+          setPending(false);
           if ("error" in result) return setError(result.error);
-          notify(`تم تفعيل «${result.course.title}» — بالتوفيق!`);
+          const { course } = result;
+          notify(course ? `تم تفعيل «${course.title}» — بالتوفيق!` : "تم تفعيل الدورة — بالتوفيق!");
           onClose();
-          const first = result.course.lessons[0];
-          if (first) router.push(academyRoutes.student.lesson(result.course.id, first.id));
+          // The student's courses are the server's: load them again with the new one unlocked.
+          if (live) router.refresh();
+          const first = course?.lessons[0];
+          if (course && first) router.push(academyRoutes.student.lesson(course.id, first.id));
         }}
       >
-        <Field label="كود التسجيل" htmlFor="redeem-code" error={error} hint="يتكوّن من 3 أجزاء، مثل ABC-1234-WXYZ. كل كود صالح لمرة واحدة.">
+        <Field label="كود التسجيل" htmlFor="redeem-code" error={error} hint={live ? "كل كود صالح لمرة واحدة." : "يتكوّن من 3 أجزاء، مثل ABC-1234-WXYZ. كل كود صالح لمرة واحدة."}>
           <Input
             id="redeem-code"
             dir="ltr"

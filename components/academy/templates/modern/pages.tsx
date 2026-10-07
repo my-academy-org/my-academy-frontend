@@ -49,7 +49,7 @@ export function Home({ site }: P) {
                 <Icon name="arrow" className="size-4 rtl:rotate-180" />
               </Link>
               <Link href={academyRoutes.register} className={btn.secondary}>
-                أنشئ حسابك مجاناً
+                أنشئ حسابك 
               </Link>
             </div>
             <div className="mt-12 flex gap-10 border-t border-slate-100 pt-8">

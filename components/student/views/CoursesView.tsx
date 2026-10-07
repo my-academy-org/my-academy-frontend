@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { FilterTabs } from "@/components/dashboard/ui";
+import { FilterTabs, Notice } from "@/components/dashboard/ui";
 import { Icon } from "@/components/ui/Icon";
+import { formatLessons } from "@/lib/academy/format";
+import type { LearnCourse } from "@/lib/student/types";
 import { CourseCard } from "../CourseCard";
+import { CourseCover } from "../parts";
 import { RedeemCodeButton } from "../RedeemCode";
 import { useStudent } from "../StudentStore";
 
 type Filter = "ALL" | "ACTIVE" | "NEW" | "DONE";
 
 export function CoursesView() {
-  const { courses, recentCourses, percentOf, progressOf } = useStudent();
+  const { courses, available, loadError, recentCourses, percentOf, progressOf } = useStudent();
   const [filter, setFilter] = useState<Filter>("ALL");
 
   const stage = (id: string): Exclude<Filter, "ALL"> => {
@@ -30,6 +33,12 @@ export function CoursesView() {
         </div>
         {courses.length > 0 && <RedeemCodeButton />}
       </header>
+
+      {loadError && (
+        <Notice tone="warning" className="mb-6">
+          تعذّر تحميل دوراتك: {loadError}
+        </Notice>
+      )}
 
       {courses.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-line-strong bg-white px-6 py-16 text-center">
@@ -68,6 +77,38 @@ export function CoursesView() {
           )}
         </>
       )}
+
+      {available.length > 0 && (
+        <section aria-labelledby="available-courses" className="mt-12">
+          <h2 id="available-courses" className="text-xl font-extrabold text-ink-950">
+            دورات متاحة للتفعيل
+          </h2>
+          <p className="mt-1 text-sm text-ink-500">دورات الأكاديمية التي لم تفعّلها بعد. تُفتح دروسها بكود التسجيل.</p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {available.map((c) => (
+              <LockedCourseCard key={c.id} course={c} />
+            ))}
+          </div>
+        </section>
+      )}
     </>
+  );
+}
+
+/** A published course the student isn't enrolled in: its outline is visible, its lessons aren't. */
+function LockedCourseCard({ course }: { course: LearnCourse }) {
+  return (
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-card">
+      <CourseCover course={course} />
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-[1.0625rem] leading-7 font-bold text-ink-950">{course.title}</h3>
+        <p className="mt-0.5 text-sm text-ink-500">{course.instructor}</p>
+        {course.description && <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink-600">{course.description}</p>}
+        <p className="mt-3 text-xs text-ink-500">{course.lessons.length ? formatLessons(course.lessons.length) : "لم تُضف دروس بعد"}</p>
+        <div className="mt-auto pt-4">
+          <RedeemCodeButton label="فعّل بكود التسجيل" />
+        </div>
+      </div>
+    </article>
   );
 }

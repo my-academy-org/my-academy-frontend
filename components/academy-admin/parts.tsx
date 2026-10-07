@@ -2,8 +2,8 @@ import type { CSSProperties } from "react";
 import { monogram, StatusPill } from "@/components/dashboard/ui";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
-import { codeStatus, courseStatus, examState, studentStatus, type ExamState } from "@/lib/academy-admin/meta";
-import type { CodeStatus, CourseStatus, DashCourse, StudentStatus } from "@/lib/academy-admin/types";
+import { codeStatus, courseStatus, examState, lessonStatus, studentStatus, type ExamState } from "@/lib/academy-admin/meta";
+import type { CodeStatus, CourseStatus, DashCourse, LessonStatus, StudentStatus } from "@/lib/academy-admin/types";
 
 /** The academy's logo, or a monogram tinted with its brand colour. */
 export function AcademyLogo({
@@ -71,6 +71,9 @@ export function ProgressBar({ value, className }: { value: number; className?: s
 
 export const CourseStatusBadge = ({ status }: { status: CourseStatus }) => (
   <StatusPill tone={courseStatus[status].tone}>{courseStatus[status].label}</StatusPill>
+);
+export const LessonStatusBadge = ({ status }: { status: LessonStatus }) => (
+  <StatusPill tone={lessonStatus[status].tone}>{lessonStatus[status].label}</StatusPill>
 );
 export const StudentStatusBadge = ({ status }: { status: StudentStatus }) => (
   <StatusPill tone={studentStatus[status].tone}>{studentStatus[status].label}</StatusPill>

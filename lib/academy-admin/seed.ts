@@ -132,6 +132,7 @@ export function buildAcademySeed(site: AcademySite): AcademySeed {
       durationMinutes: l.minutes,
       order: i + 1,
       isPreview: l.preview,
+      status: "PUBLISHED" as const,
     }));
   });
 
