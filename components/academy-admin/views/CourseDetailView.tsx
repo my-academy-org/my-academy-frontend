@@ -14,7 +14,7 @@ import { dash, formatStudents } from "@/lib/academy-admin/meta";
 import type { DashCourse } from "@/lib/academy-admin/types";
 import { formatDate, formatDuration, formatNumber } from "@/lib/format";
 import { useAcademy } from "../AcademyStore";
-import { CourseStatusBadge, CourseThumb, ProgressBar } from "../parts";
+import { CourseStatusBadge, CourseThumb, LessonStatusBadge, ProgressBar } from "../parts";
 import { useCourseActions } from "../useCourseActions";
 
 type Tab = "overview" | "lessons" | "students";
@@ -54,7 +54,7 @@ export function CourseDetailView({ id, initialTab = "overview" }: { id: string; 
               <Icon name="edit" className="size-4" />
               تعديل
             </Button>
-            {course.status === "DRAFT" ? (
+            {course.status !== "PUBLISHED" ? (
               <Button onClick={() => publish(course)}>
                 <Icon name="power" className="size-4" />
                 نشر الدورة
@@ -118,7 +118,8 @@ export function CourseDetailView({ id, initialTab = "overview" }: { id: string; 
                   <span className="grid size-7 shrink-0 place-items-center rounded-full bg-canvas text-xs font-bold text-ink-600 ring-1 ring-line tabular-nums">{l.order}</span>
                   <span className="min-w-0 flex-1 truncate font-semibold text-ink-900">{l.title}</span>
                   {l.isPreview && <span className="rounded-md bg-brand-50 px-1.5 py-px text-[0.6875rem] font-bold text-brand-700">معاينة مجانية</span>}
-                  <span className="text-xs text-ink-500 tabular-nums">{formatDuration(l.durationMinutes)}</span>
+                  {l.status !== "PUBLISHED" && <LessonStatusBadge status={l.status} />}
+                  {l.durationMinutes > 0 && <span className="text-xs text-ink-500 tabular-nums">{formatDuration(l.durationMinutes)}</span>}
                 </li>
               ))}
             </ol>
@@ -132,10 +133,12 @@ export function CourseDetailView({ id, initialTab = "overview" }: { id: string; 
 }
 
 function OverviewTab({ course }: { course: DashCourse }) {
+  const { live } = useAcademy();
   return (
     <Panel title="عن الدورة">
       <p className="leading-8 text-ink-800">{course.description}</p>
-      {course.content ? (
+      {/* The API has no long-form course content yet. */}
+      {live ? null : course.content ? (
         <div className="mt-5 space-y-4 border-t border-line pt-5 leading-8 whitespace-pre-line text-ink-700">
           {paragraphs(course.content).map((p) => (
             <p key={p}>{p}</p>

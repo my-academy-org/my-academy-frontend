@@ -70,6 +70,12 @@ export interface StudentActivity {
 }
 
 export interface StudentSeed {
+  /** Courses and lessons come from the API (docs/courses-lessons-api.md); each lesson's text and video are loaded when it is opened. */
+  live?: boolean;
+  /** With a backend: published courses the student hasn't activated yet, shown locked. */
+  available?: LearnCourse[];
+  /** Why the courses couldn't be loaded from the API. */
+  loadError?: string;
   academy: StudentAcademy;
   profile: StudentProfile;
   courses: LearnCourse[];

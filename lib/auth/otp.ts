@@ -43,7 +43,7 @@ export async function verifyOtp(apiUrl: string, role: OtpRole, email: string, ot
 }
 
 /** How long each role's code stays valid. */
-export const otpLifetime: Record<OtpRole, string> = { ACADEMY_ADMIN: "5 دقائق", STUDENT: "ساعة واحدة" };
+export const otpLifetime: Record<OtpRole, string> = { ACADEMY_ADMIN: "5 دقائق", STUDENT: "5 دقائق" };
 
 export function otpErrorMessage(reason: "expired" | "invalid" | "unavailable", role: OtpRole) {
   if (reason === "unavailable") return "تعذّر تأكيد الرمز الآن. حاول مرة أخرى بعد قليل.";

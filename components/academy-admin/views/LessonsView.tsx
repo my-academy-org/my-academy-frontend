@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useConfirm } from "@/components/dashboard/ConfirmDialog";
 import { RowMenu } from "@/components/dashboard/RowMenu";
@@ -14,10 +15,11 @@ import { dash } from "@/lib/academy-admin/meta";
 import type { Attachment, DashLesson } from "@/lib/academy-admin/types";
 import { formatDuration, formatFileSize } from "@/lib/format";
 import { useAcademy, type LessonInput } from "../AcademyStore";
-import { CourseStatusBadge, CourseThumb } from "../parts";
+import { CourseStatusBadge, CourseThumb, LessonStatusBadge } from "../parts";
 
 export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
-  const { courses, lessonsOf, moveLesson, deleteLesson, notify } = useAcademy();
+  const router = useRouter();
+  const { courses, lessonsOf, moveLesson, deleteLesson, setLessonStatus, notify, live } = useAcademy();
   const { confirm, dialog } = useConfirm();
   const [courseId, setCourseId] = useState(() => courses.find((c) => c.id === initialCourseId)?.id ?? courses[0]?.id ?? "");
   const [editor, setEditor] = useState<{ open: boolean; lesson?: DashLesson; version: number }>({ open: false, version: 0 });
@@ -28,7 +30,11 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
   const course = courses.find((c) => c.id === courseId);
   const lessons = course ? lessonsOf(course.id) : [];
   const totalMinutes = lessons.reduce((sum, l) => sum + l.durationMinutes, 0);
-  const openEditor = (lesson?: DashLesson) => setEditor((e) => ({ open: true, lesson, version: e.version + 1 }));
+  const openEditor = (lesson?: DashLesson) => {
+    // With a backend a lesson has its own page, built around the video upload; the demo edits in place.
+    if (live && course) return router.push(lesson ? dash.editLesson(lesson.id) : dash.newLesson(course.id));
+    setEditor((e) => ({ open: true, lesson, version: e.version + 1 }));
+  };
 
   if (courses.length === 0) {
     return (
@@ -41,8 +47,31 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
     );
   }
 
+  const reorder = async (id: string, to: number) => {
+    const res = await moveLesson(id, to);
+    if (!res.ok) notify(res.message, "error");
+  };
+
+  /** Offered when the API refuses to delete a lesson that has student progress or exams. */
+  const archive = (l: DashLesson) =>
+    confirm({
+      title: "لا يمكن حذف الدرس",
+      description: (
+        <>
+          <b className="text-ink-900">{l.title}</b> مرتبط بتقدّم طلاب أو باختبارات. يمكنك أرشفته بدلاً من حذفه.
+        </>
+      ),
+      points: ["الدرس المؤرشف لا يراه الطلاب، ويبقى فيديوه وبياناته محفوظة."],
+      confirmLabel: "أرشفة الدرس",
+      onConfirm: async () => {
+        const res = await setLessonStatus(l.id, "ARCHIVED");
+        if (res.ok) notify("تمت أرشفة الدرس");
+        else notify(res.message, "error");
+      },
+    });
+
   const move = (lesson: DashLesson, to: number) => {
-    moveLesson(lesson.id, to);
+    reorder(lesson.id, to);
     // Keep keyboard focus on the moved row's handle.
     requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>(`[data-lesson="${lesson.id}"] [data-move]`)?.focus());
   };
@@ -117,7 +146,7 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
               <EmptyState
                 icon="play"
                 title="لا توجد دروس في هذه الدورة"
-                description="أضف الدرس الأول: فيديو وشرح ومرفقات."
+                description={live ? "أضف الدرس الأول: فيديو وشرح." : "أضف الدرس الأول: فيديو وشرح ومرفقات."}
                 action={<Button onClick={() => openEditor()}>إضافة أول درس</Button>}
               />
             ) : (
@@ -146,7 +175,7 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
                       e.preventDefault();
                       if (dragId === null || dropIndex === null) return;
                       const from = lessons.findIndex((x) => x.id === dragId);
-                      moveLesson(dragId, dropIndex > from ? dropIndex - 1 : dropIndex);
+                      reorder(dragId, dropIndex > from ? dropIndex - 1 : dropIndex);
                       setDragId(null);
                       setDropIndex(null);
                     }}
@@ -171,11 +200,16 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
                     <button type="button" onClick={() => openEditor(l)} className="min-w-0 flex-1 text-start">
                       <span className="block truncate font-semibold text-ink-950 hover:text-brand-700">{l.title}</span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-500">
-                        <span className="inline-flex items-center gap-1">
-                          <Icon name="clock" className="size-3.5" />
-                          {formatDuration(l.durationMinutes)}
-                        </span>
-                        {l.videoUrl ? (
+                        {l.durationMinutes > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <Icon name="clock" className="size-3.5" />
+                            {formatDuration(l.durationMinutes)}
+                          </span>
+                        )}
+                        {live ? (
+                          // With a backend every lesson has a video; what varies is whether students see it.
+                          <LessonStatusBadge status={l.status} />
+                        ) : l.videoUrl ? (
                           <span className="inline-flex items-center gap-1">
                             <Icon name="play" className="size-3.5" />
                             فيديو
@@ -236,9 +270,11 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
                               ),
                               confirmLabel: "حذف الدرس",
                               tone: "danger",
-                              onConfirm: () => {
-                                deleteLesson(l.id);
-                                notify("تم حذف الدرس");
+                              onConfirm: async () => {
+                                const res = await deleteLesson(l.id);
+                                if (res.ok) notify("تم حذف الدرس");
+                                else if (res.status === 409) archive(l);
+                                else notify(res.message, "error");
                               },
                             }),
                         },
@@ -252,7 +288,7 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
         )}
       </div>
 
-      {course && (
+      {course && !live && (
         <LessonEditor
           key={editor.version}
           open={editor.open}
@@ -268,6 +304,7 @@ export function LessonsView({ initialCourseId }: { initialCourseId?: string }) {
 
 /* ------------------------------------------------------------------ */
 
+/** The demo editor; with a backend a lesson is added and edited on its own page (LessonForm). */
 function LessonEditor({ open, courseId, lesson, onClose }: { open: boolean; courseId: string; lesson?: DashLesson; onClose: () => void }) {
   const { lessonsOf, createLesson, updateLesson, moveLesson, notify } = useAcademy();
   const siblings = lessonsOf(courseId);
@@ -280,6 +317,7 @@ function LessonEditor({ open, courseId, lesson, onClose }: { open: boolean; cour
     attachments: lesson?.attachments ?? [],
     durationMinutes: lesson?.durationMinutes ?? 10,
     isPreview: lesson?.isPreview ?? false,
+    status: lesson?.status ?? "PUBLISHED",
     position: lesson?.order ?? siblings.length + 1,
   });
   const [errors, setErrors] = useState<{ title?: string; duration?: string; video?: string }>({});
@@ -287,7 +325,7 @@ function LessonEditor({ open, courseId, lesson, onClose }: { open: boolean; cour
   const filesRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => setValues((v) => ({ ...v, [key]: value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
     if (values.title.trim().length < 2) next.title = "أدخل عنوان الدرس";
@@ -298,13 +336,12 @@ function LessonEditor({ open, courseId, lesson, onClose }: { open: boolean; cour
 
     const { position, ...input } = { ...values, title: values.title.trim(), videoUrl: values.videoUrl || undefined };
     if (lesson) {
-      updateLesson(lesson.id, input);
-      if (position !== lesson.order) moveLesson(lesson.id, position - 1);
+      await updateLesson(lesson.id, input);
+      if (position !== lesson.order) await moveLesson(lesson.id, position - 1);
       notify("تم حفظ الدرس");
     } else {
-      const created = createLesson(courseId, input);
-      if (position <= siblings.length) moveLesson(created.id, position - 1);
-      notify(`تمت إضافة «${created.title}»`);
+      await createLesson(courseId, input, position);
+      notify(`تمت إضافة «${input.title}»`);
     }
     onClose();
   };

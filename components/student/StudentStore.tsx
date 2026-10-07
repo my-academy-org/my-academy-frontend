@@ -3,11 +3,14 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useToast } from "@/components/dashboard/Toaster";
 import { scoreOf, stateOf } from "@/lib/academy-admin/meta";
+import { redeemCodeAction } from "@/lib/student/actions";
 import type { CourseProgress, LearnCourse, StudentExam, StudentProfile, StudentSeed, Submission } from "@/lib/student/types";
 
 /**
  * Client-side state for the signed-in student, seeded by the server layout.
- * Each mutation maps to one API call once the backend is connected.
+ * With a backend (`seed.live`) the courses are the student's real ones and a
+ * code is redeemed through the API; progress, exams and results are still
+ * kept here only.
  */
 
 export type StudentExamState = "AVAILABLE" | "UPCOMING" | "COMPLETED" | "MISSED";
@@ -59,6 +62,10 @@ function useStudentState(seed: StudentSeed) {
 
     return {
       academy: seed.academy,
+      live: !!seed.live,
+      /** Published courses the student hasn't activated yet (with a backend). */
+      available: seed.available ?? [],
+      loadError: seed.loadError,
       profile,
       courses,
       exams: seed.exams,
@@ -104,9 +111,18 @@ function useStudentState(seed: StudentSeed) {
         log("exam", `أنهيت «${exam.title}»`);
         return attempt;
       },
-      /** Returns the unlocked course, or an error message. */
-      redeemCode(raw: string): { course: LearnCourse } | { error: string } {
+      /**
+       * Returns the unlocked course, or an error message. With a backend the course list is the server's:
+       * the caller refreshes the page to load it, and `course` is only set when the API named it.
+       */
+      async redeemCode(raw: string): Promise<{ course?: LearnCourse } | { error: string }> {
         const code = raw.trim().toUpperCase().replace(/\s+/g, "");
+        if (seed.live) {
+          if (!code) return { error: "أدخل كود التسجيل" };
+          const res = await redeemCodeAction(code);
+          if (!res.ok) return { error: res.message };
+          return { course: seed.available?.find((c) => c.id === res.data.courseId) };
+        }
         if (!/^[A-Z]{3}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) return { error: "صيغة الكود غير صحيحة. مثال: ABC-1234-WXYZ" };
         const course = redeemable[code];
         if (!course) return { error: "الكود غير صالح أو مستخدم من قبل" };
@@ -121,7 +137,7 @@ function useStudentState(seed: StudentSeed) {
         setProfile(next);
       },
     };
-  }, [seed.academy, seed.exams, profile, courses, progress, attempts, activity, redeemable, notify]);
+  }, [seed.academy, seed.exams, seed.live, seed.available, seed.loadError, profile, courses, progress, attempts, activity, redeemable, notify]);
 }
 
 export type StudentStore = ReturnType<typeof useStudentState>;

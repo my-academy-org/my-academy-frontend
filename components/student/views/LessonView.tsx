@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { VideoPlayer as Player } from "@/components/ui/VideoPlayer";
 import { cn } from "@/lib/cn";
 import { paragraphs } from "@/lib/academy/format";
 import { academyRoutes } from "@/lib/academy/nav";
+import type { ApiResult } from "@/lib/academy/courses";
 import { formatDuration, formatFileSize } from "@/lib/format";
+import { openLessonAction, type OpenLesson } from "@/lib/student/actions";
 import type { LearnCourse, LearnLesson } from "@/lib/student/types";
 import { Meter } from "../parts";
+import { RedeemCodeButton } from "../RedeemCode";
 import { useStudent } from "../StudentStore";
 
 const r = academyRoutes.student;
@@ -18,16 +22,38 @@ const r = academyRoutes.student;
 /** Focused lesson screen: the video first, the curriculum beside it, nothing else competing. */
 export function LessonView({ courseId, lessonId }: { courseId: string; lessonId: string }) {
   const router = useRouter();
-  const { courseById, progressOf, percentOf, openLesson, setLessonComplete, notify } = useStudent();
+  const { courseById, progressOf, percentOf, openLesson, setLessonComplete, notify, live } = useStudent();
   const [outlineOpen, setOutlineOpen] = useState(false);
   const course = courseById(courseId);
   const index = course?.lessons.findIndex((l) => l.id === lessonId) ?? -1;
-  const lesson = course?.lessons[index];
+  const listed = course?.lessons[index];
+  // With a backend the course outline has no text or video address: they are asked for each time a lesson is opened.
+  const remote = useOpenLesson(live && listed ? listed.id : null);
+  const lesson = listed && remote.data ? { ...listed, content: remote.data.content, videoUrl: remote.data.videoUrl ?? undefined } : listed;
 
   // Remember where the student is, for "Continue learning".
   useEffect(() => {
-    if (course && lesson) openLesson(course.id, lesson.id);
-  }, [course, lesson, openLesson]);
+    if (course && listed) openLesson(course.id, listed.id);
+  }, [course, listed, openLesson]);
+
+  if (course && listed && remote.error) {
+    // 403: the enrollment was revoked since the page loaded; 404: the lesson was unpublished or removed.
+    const locked = remote.error.status === 403;
+    return (
+      <div className="grid min-h-dvh place-items-center px-6 text-center">
+        <div>
+          <p className="text-lg font-bold text-ink-950">{locked ? "لست مشتركاً في هذه الدورة" : remote.error.status === 404 ? "الدرس غير متاح" : "تعذّر فتح الدرس"}</p>
+          <p className="mt-2 text-sm text-ink-500">{locked ? "فعّل الدورة بكود التسجيل لتفتح دروسها." : remote.error.status === 404 ? "ربما حُذف الدرس أو أُلغي نشره." : remote.error.message}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {locked ? <RedeemCodeButton variant="primary" /> : remote.error.status !== 404 && <Button onClick={remote.reload}>إعادة المحاولة</Button>}
+            <Button href={r.courses} variant="secondary">
+              العودة إلى دوراتي
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!course || !lesson) {
     return (
@@ -83,7 +109,7 @@ export function LessonView({ courseId, lessonId }: { courseId: string; lessonId:
 
       <div className="mx-auto grid w-full max-w-[90rem] flex-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <main className="min-w-0 px-0 pb-16 sm:px-6 sm:pt-6 lg:px-8">
-          <VideoPlayer key={lesson.id} lesson={lesson} />
+          <VideoPlayer key={lesson.id} lesson={lesson} loading={remote.loading} onRetry={live ? remote.reload : undefined} />
 
           <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-0">
             <p className="text-sm font-semibold text-brand-700">
@@ -252,24 +278,65 @@ function Outline({ course, current, completed, onNavigate }: { course: LearnCour
   );
 }
 
-function VideoPlayer({ lesson }: { lesson: LearnLesson }) {
+/**
+ * The lesson's text and video address from the API (GET /lessons/:id), asked
+ * for on every open and again on `reload`. The video itself is streamed by the
+ * API with the session cookie, so it stops with a 401 once the one-hour
+ * session ends; `reload` then reports the expired session.
+ */
+function useOpenLesson(lessonId: string | null) {
+  const [attempt, setAttempt] = useState(0);
+  const stamp = `${lessonId}@${attempt}`;
+  const [state, setState] = useState<{ stamp?: string; result?: ApiResult<OpenLesson> }>({});
+
+  useEffect(() => {
+    if (!lessonId) return;
+    let cancelled = false;
+    openLessonAction(lessonId)
+      .catch((): ApiResult<OpenLesson> => ({ ok: false, status: 0, message: "تعذّر الاتصال بالخادم. حاول مرة أخرى.", raw: "" }))
+      .then((result) => {
+        if (!cancelled) setState({ stamp, result });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lessonId, stamp]);
+
+  const result = state.stamp === stamp ? state.result : undefined;
+  return {
+    loading: !!lessonId && !result,
+    data: result?.ok ? result.data : undefined,
+    error: result && !result.ok ? result : undefined,
+    reload: () => setAttempt((a) => a + 1),
+  };
+}
+
+function VideoPlayer({ lesson, loading, onRetry }: { lesson: LearnLesson; loading?: boolean; onRetry?: () => void }) {
   const [state, setState] = useState<"idle" | "playing" | "error">("idle");
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-ink-950 sm:rounded-2xl">
+    <div className="relative aspect-video w-full overflow-hidden bg-ink-950 sm:rounded-2xl sm:shadow-lift sm:ring-1 sm:ring-ink-950/10">
       {lesson.videoUrl && state === "playing" ? (
-        <video src={lesson.videoUrl} controls autoPlay playsInline className="size-full" onError={() => setState("error")}>
-          <track kind="captions" />
-        </video>
+        <Player src={lesson.videoUrl} title={lesson.title} autoPlay className="absolute inset-0 aspect-auto h-full" onError={() => setState("error")} />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,var(--color-brand-900),var(--color-ink-950))]">
-          {!lesson.videoUrl ? (
+          {loading ? (
+            <p className="px-6 text-center text-sm text-white/70">جارٍ تحميل الدرس…</p>
+          ) : !lesson.videoUrl ? (
             <p className="px-6 text-center text-sm text-white/70">هذا الدرس بدون فيديو — المحتوى المكتوب بالأسفل.</p>
           ) : state === "error" ? (
             <div className="px-6 text-center text-white/80">
               <Icon name="alert" className="mx-auto size-7" />
               <p className="mt-3 text-sm">تعذّر تشغيل الفيديو. تحقّق من اتصالك ثم حاول مرة أخرى.</p>
-              <button type="button" onClick={() => setState("playing")} className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">
+              <button
+                type="button"
+                onClick={() => {
+                  // The session may have ended or the lesson changed: ask for it again.
+                  onRetry?.();
+                  setState("playing");
+                }}
+                className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15"
+              >
                 إعادة المحاولة
               </button>
             </div>

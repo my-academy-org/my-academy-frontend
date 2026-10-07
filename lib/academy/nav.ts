@@ -19,6 +19,8 @@ export const academyRoutes = {
     results: "/student/results",
     profile: "/student/profile",
     lesson: (courseId: string, lessonId: string) => `/student/learn/${courseId}/${lessonId}`,
+    /** The lesson's video played through this app (lib/academy/video.ts). */
+    video: (lessonId: string) => `/student/video/${lessonId}`,
   },
 } as const;
 

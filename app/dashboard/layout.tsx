@@ -8,6 +8,7 @@ import { Notice } from "@/components/dashboard/ui";
 import { ACADEMY_API_URL } from "@/lib/academy/config";
 import { getAcademySite } from "@/lib/academy/data";
 import { TEMPLATE_BY_TYPE } from "@/lib/academy/landing";
+import { fetchDashboardContent } from "@/lib/academy-admin/courses";
 import { buildAcademySeed, emptyAcademySeed } from "@/lib/academy-admin/seed";
 import type { AcademySeed } from "@/lib/academy-admin/types";
 import { backendTenant } from "@/lib/auth/backend";
@@ -23,13 +24,17 @@ export const metadata: Metadata = {
 /**
  * With a backend, an ACADEMY_ADMIN account only exists linked to an academy
  * (it is created through POST /auth/academy-admin/verify-otp for one tenant —
- * docs/auth-api.md §4), so the owner always goes straight in. The dashboard's
- * own data isn't served by the API yet, so it starts empty rather than with
+ * docs/auth-api.md §4), so the owner always goes straight in. Courses and
+ * lessons come from the API (docs/courses-lessons-api.md); the rest of the
+ * dashboard's data isn't served yet, so it starts empty rather than with
  * sample content.
  */
 async function backendSeed(session: Session): Promise<AcademySeed> {
   const token = await getAccessToken();
-  const tenant = token && session.tenantId != null ? await backendTenant(token, session.tenantId) : null;
+  const [tenant, content] = await Promise.all([
+    token && session.tenantId != null ? backendTenant(token, session.tenantId) : null,
+    token ? fetchDashboardContent(token) : null,
+  ]);
   const seed = emptyAcademySeed({
     slug: tenant?.slug ?? "",
     name: tenant?.name ?? "أكاديميتي",
@@ -38,6 +43,13 @@ async function backendSeed(session: Session): Promise<AcademySeed> {
     owner: { name: session.name, email: session.email },
   });
   if (tenant?.slug) seed.profile.siteUrl = await academyOrigin(tenant.slug);
+  seed.live = true;
+  if (content?.ok) {
+    seed.courses = content.courses;
+    seed.lessons = content.lessons;
+  } else {
+    seed.loadError = content?.message ?? "انتهت الجلسة. سجّل الدخول مرة أخرى.";
+  }
   return seed;
 }
 
@@ -76,7 +88,12 @@ export default async function AcademyDashboardLayout({ children }: LayoutProps<"
           <AcademyShell>
             {ACADEMY_API_URL && (
               <Notice tone="warning" className="mb-6">
-                لوحة الأكاديمية لم تُربط بالخادم بعد: ما تضيفه أو تعدّله هنا لا يُحفظ حالياً، باستثناء صفحة الهبوط في «موقع الأكاديمية».
+                الدورات والدروس وصفحة الهبوط في «موقع الأكاديمية» تُحفظ على الخادم. باقي أقسام اللوحة لم تُربط بعد: ما تضيفه أو تعدّله فيها لا يُحفظ حالياً.
+              </Notice>
+            )}
+            {seed.loadError && (
+              <Notice tone="warning" className="mb-6">
+                تعذّر تحميل الدورات والدروس: {seed.loadError}
               </Notice>
             )}
             {children}

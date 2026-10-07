@@ -30,6 +30,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const user = me.data;
   const allowed = user?.role === "SUPER_ADMIN";
 
+
   useEffect(() => {
     // Signed in with another role: off to that role's own home.
     if (user && !allowed) window.location.replace(homePathFor(user.role) ?? "/");

@@ -18,6 +18,8 @@ export interface Media {
 export interface Tenant {
   /** Subdomain: `ahmed` → ahmed.myacademy.com */
   slug: string;
+  /** Backend tenant id — what students register into and are checked against. Absent for the bundled sample academies. */
+  tenantId?: number;
   name: string;
   plan: Plan;
   status: TenantStatus;

@@ -16,7 +16,8 @@ const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export function CourseForm({ course }: { course?: DashCourse }) {
   const router = useRouter();
-  const { createCourse, updateCourse, notify } = useAcademy();
+  const { createCourse, updateCourse, notify, live } = useAcademy();
+  const [saving, setSaving] = useState(false);
   const [values, setValues] = useState({
     title: course?.title ?? "",
     description: course?.description ?? "",
@@ -32,24 +33,32 @@ export function CourseForm({ course }: { course?: DashCourse }) {
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const next: typeof errors = {};
     if (values.title.trim().length < 3) next.title = "أدخل عنوان الدورة (3 أحرف على الأقل)";
+    else if (values.title.trim().length > 191) next.title = "العنوان 191 حرفاً كحد أقصى";
     if (!values.description.trim()) next.description = "أضف وصفاً مختصراً يظهر في بطاقة الدورة";
     else if (values.description.length > 200) next.description = "الوصف المختصر 200 حرف كحد أقصى";
+    if (live && values.thumbnailUrl && !URL.canParse(values.thumbnailUrl)) next.thumbnail = "أدخل رابطاً صحيحاً يبدأ بـ https://";
     setErrors(next);
     if (Object.keys(next).length) return;
 
     const input = { ...values, title: values.title.trim(), description: values.description.trim(), content: values.content.trim() };
+    setSaving(true);
     if (course) {
-      updateCourse(course.id, input);
+      const res = await updateCourse(course.id, input);
+      setSaving(false);
+      if (!res.ok) return notify(res.message, "error");
       notify("تم حفظ الدورة");
       router.push(dash.course(course.id));
     } else {
-      const created = createCourse(input);
-      notify(`تم إنشاء «${created.title}» — أضف دروسها الآن`);
-      router.push(dash.lessons(created.id));
+      const res = await createCourse(input);
+      setSaving(false);
+      if (!res.ok) return notify(res.message, "error");
+      notify(`تم إنشاء «${res.data.title}» — أضف دروسها الآن`);
+      router.push(dash.lessons(res.data.id));
     }
   };
 
@@ -72,17 +81,38 @@ export function CourseForm({ course }: { course?: DashCourse }) {
           </div>
         </Panel>
 
-        <Panel title="محتوى الدورة" description="يظهر في صفحة الدورة: ما الذي سيتعلّمه الطالب، المتطلبات، وطريقة الدراسة.">
-          <Field label="المحتوى" htmlFor="content" optional hint="افصل الفقرات بسطر فارغ. ابدأ السطر بـ • لعمل قائمة.">
-            <Textarea id="content" rows={10} value={values.content} onChange={(e) => set("content", e.target.value)} placeholder={"عن الدورة…\n\nماذا ستتعلّم:\n• …\n• …"} />
-          </Field>
-        </Panel>
+        {/* The API has no field for a course's long-form content yet. */}
+        {!live && (
+          <Panel title="محتوى الدورة" description="يظهر في صفحة الدورة: ما الذي سيتعلّمه الطالب، المتطلبات، وطريقة الدراسة.">
+            <Field label="المحتوى" htmlFor="content" optional hint="افصل الفقرات بسطر فارغ. ابدأ السطر بـ • لعمل قائمة.">
+              <Textarea id="content" rows={10} value={values.content} onChange={(e) => set("content", e.target.value)} placeholder={"عن الدورة…\n\nماذا ستتعلّم:\n• …\n• …"} />
+            </Field>
+          </Panel>
+        )}
       </div>
 
       <aside className="space-y-6 lg:sticky lg:top-24">
         <Panel title="صورة الدورة" bodyClassName="p-5">
           <CourseThumb course={{ thumbnailUrl: values.thumbnailUrl, tint: course?.tint ?? "#e0e7ff", title: values.title }} className="w-full rounded-xl" />
-          <div className="mt-3 flex gap-2">
+          {/* The API stores a link to the image (`imageUrl`); there is no image upload yet. */}
+          {live && (
+            <Field label="رابط الصورة" htmlFor="thumbnail" optional error={errors.thumbnail} hint="رابط صورة مرفوعة على الإنترنت، بنسبة 16:10." className="mt-3">
+              <Input
+                id="thumbnail"
+                type="url"
+                dir="ltr"
+                className="text-start"
+                placeholder="https://"
+                value={values.thumbnailUrl ?? ""}
+                onChange={(e) => {
+                  set("thumbnailUrl", e.target.value.trim() || undefined);
+                  setErrors((x) => ({ ...x, thumbnail: undefined }));
+                }}
+                aria-invalid={!!errors.thumbnail}
+              />
+            </Field>
+          )}
+          <div className={cn("mt-3 flex gap-2", live && "hidden")}>
             <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
               <Icon name="upload" className="size-4" />
               {values.thumbnailUrl ? "تغيير الصورة" : "رفع صورة"}
@@ -93,7 +123,7 @@ export function CourseForm({ course }: { course?: DashCourse }) {
               </Button>
             )}
           </div>
-          <p className={cn("mt-2 text-xs", errors.thumbnail ? "text-red-600" : "text-ink-500")}>
+          <p className={cn("mt-2 text-xs", errors.thumbnail ? "text-red-600" : "text-ink-500", live && "hidden")}>
             {errors.thumbnail ?? "JPG أو PNG بنسبة 16:10، حتى 4MB."}
           </p>
           <input
@@ -140,8 +170,8 @@ export function CourseForm({ course }: { course?: DashCourse }) {
             ))}
           </div>
           <div className="mt-5 flex flex-col gap-2">
-            <Button type="submit" className="w-full">
-              {course ? "حفظ التعديلات" : "إنشاء الدورة"}
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "جارٍ الحفظ…" : course ? "حفظ التعديلات" : "إنشاء الدورة"}
             </Button>
             <Button variant="ghost" className="w-full" onClick={() => router.back()}>
               إلغاء

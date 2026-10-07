@@ -67,7 +67,7 @@ async function request<T>(path: string, { method = "GET", body, query, public: i
 
   const data = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
   if (!res.ok) {
-    if (res.status === 401 && !isPublic) redirectToLogin();
+    // if (res.status === 401 && !isPublic) redirectToLogin();
     const message = Array.isArray(data?.message) ? data.message.join(" · ") : data?.message;
     throw new ApiError(res.status, message ?? res.statusText);
   }

@@ -142,7 +142,7 @@ export function toAcademySite(slug: string, data: LandingPageResponse): AcademyS
 
   return {
     // The plan isn't in the public response; only PRO academies can create a page.
-    tenant: { slug, name, plan: lp ? "PRO" : "BASIC", status: "ACTIVE" },
+    tenant: { slug, tenantId: data.tenantId, name, plan: lp ? "PRO" : "BASIC", status: "ACTIVE" },
     academy: {
       logo: media(academy.logoUrl),
       template: TEMPLATE_BY_TYPE[data.template?.type] ?? "MODERN",

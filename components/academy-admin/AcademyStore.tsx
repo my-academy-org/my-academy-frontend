@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useToast } from "@/components/dashboard/Toaster";
+import { deleteCourseAction, deleteLessonAction, reorderLessonsAction, saveCourseAction, saveLessonAction } from "@/lib/academy-admin/course-actions";
 import { hasFeature, type GatedFeature } from "@/lib/academy-admin/plan";
 import { codePrefix, makeCode } from "@/lib/academy-admin/codes";
 import type {
@@ -17,6 +18,7 @@ import type {
   EnrollmentCode,
   Exam,
   ExamStatus,
+  LessonStatus,
   MediaItem,
   StudentStatus,
   WebsiteContent,
@@ -24,19 +26,33 @@ import type {
 
 /**
  * Client-side state for one academy's dashboard, seeded by the server layout.
- * Every mutation is a single function here; wiring the owner-scoped API means
- * replacing these bodies with fetch calls — the screens stay the same.
+ * Every mutation is a single function here. With a backend (`seed.live`),
+ * courses and lessons are saved through the API first
+ * (lib/academy-admin/course-actions.ts) and the state follows its answer; the
+ * other sections are still local, as is everything in the demo.
  */
 
 export type CourseInput = Pick<DashCourse, "title" | "description" | "content" | "thumbnailUrl" | "status">;
-export type LessonInput = Omit<DashLesson, "id" | "courseId" | "order">;
+export type LessonInput = Omit<DashLesson, "id" | "courseId" | "order" | "savedOrder"> & {
+  /** With a backend: the uploaded video — required to create, set on an edit only when replaced. */
+  mediaId?: number;
+  /** Length of that video, in seconds. */
+  videoSeconds?: number;
+};
+/** Outcome of saving a course or lesson; `message` is ready to show. */
+export type Saved<T = void> = { ok: true; data: T } | { ok: false; status: number; message: string };
 export type ExamInput = Omit<Exam, "id" | "createdAt">;
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const now = () => new Date().toISOString();
+const saved = <T,>(data: T): Saved<T> => ({ ok: true, data });
+/** The API only takes a hosted image, never a local preview. */
+const hostedUrl = (url?: string) => (url && /^https?:\/\//.test(url) ? url : undefined);
+const byOrder = (a: DashLesson, b: DashLesson) => a.order - b.order;
 
 function useAcademyState(seed: AcademySeed) {
   const notify = useToast();
+  const live = !!seed.live;
   const [profile, setProfile] = useState(seed.profile);
   const [courses, setCourses] = useState(seed.courses);
   const [lessons, setLessons] = useState(seed.lessons);
@@ -53,7 +69,7 @@ function useAcademyState(seed: AcademySeed) {
       setActivity((prev) => [{ id: newId("act"), kind, message, at: now() } satisfies DashActivity, ...prev]);
 
     const courseById = (id: string) => courses.find((c) => c.id === id);
-    const lessonsOf = (courseId: string) => lessons.filter((l) => l.courseId === courseId).sort((a, b) => a.order - b.order);
+    const lessonsOf = (courseId: string) => lessons.filter((l) => l.courseId === courseId).sort(byOrder);
     const studentsIn = (courseId: string) => students.filter((s) => s.enrollments.some((e) => e.courseId === courseId));
 
     /** 0–100: completed lessons out of the course's current lessons. */
@@ -65,9 +81,42 @@ function useAcademyState(seed: AcademySeed) {
     };
 
     const renumber = (list: DashLesson[], courseId: string) => {
-      const ordered = list.filter((l) => l.courseId === courseId).sort((a, b) => a.order - b.order);
+      const ordered = list.filter((l) => l.courseId === courseId).sort(byOrder);
       const position = new Map(ordered.map((l, i) => [l.id, i + 1]));
       return list.map((l) => (position.has(l.id) ? { ...l, order: position.get(l.id)! } : l));
+    };
+
+    /** Moves a lesson of `list` to a 0-based index within its course; with a backend, saves every position that changed. */
+    const move = async (list: DashLesson[], id: string, toIndex: number): Promise<Saved> => {
+      const lesson = list.find((l) => l.id === id);
+      if (!lesson) return saved(undefined);
+      const ordered = list.filter((l) => l.courseId === lesson.courseId).sort(byOrder);
+      const before = new Map(ordered.map((l) => [l.id, l.order]));
+      const from = ordered.findIndex((l) => l.id === id);
+      const to = Math.max(0, Math.min(ordered.length - 1, toIndex));
+      if (from === to) return saved(undefined);
+      ordered.splice(to, 0, ordered.splice(from, 1)[0]);
+      const position = new Map(ordered.map((l, i) => [l.id, i + 1]));
+      const place = (orders: Map<string, number>) => setLessons((prev) => prev.map((l) => (orders.has(l.id) ? { ...l, order: orders.get(l.id)! } : l)));
+      place(position);
+      if (!live) return saved(undefined);
+
+      const changed = ordered.filter((l) => l.savedOrder !== position.get(l.id));
+      const res = await reorderLessonsAction(changed.map((l) => ({ id: l.id, order: position.get(l.id)! })));
+      if (!res.ok) {
+        place(before);
+        return res;
+      }
+      const stored = new Set(changed.map((l) => l.id));
+      setLessons((prev) => prev.map((l) => (stored.has(l.id) ? { ...l, savedOrder: position.get(l.id) } : l)));
+      return saved(undefined);
+    };
+
+    const patchCourse = async (id: string, fields: Parameters<typeof saveCourseAction>[1]): Promise<Saved> => {
+      const res = await saveCourseAction(id, fields);
+      if (!res.ok) return res;
+      setCourses((prev) => prev.map((c) => (c.id === id ? res.data : c)));
+      return saved(undefined);
     };
 
     return {
@@ -82,6 +131,7 @@ function useAcademyState(seed: AcademySeed) {
       media,
       activity,
       notify,
+      live,
 
       can: (feature: GatedFeature) => hasFeature(profile.plan, feature),
       courseById,
@@ -93,66 +143,133 @@ function useAcademyState(seed: AcademySeed) {
       submissionsOf: (examId: string) => submissions.filter((s) => s.examId === examId),
 
       /* Courses */
-      createCourse(input: CourseInput) {
-        const course: DashCourse = {
-          id: newId("c"),
-          slug: newId("course"),
-          tint: ["#dbe4ff", "#d1fae5", "#fde68a", "#fbcfe8"][courses.length % 4],
-          createdAt: now(),
-          ...input,
-        };
+      async createCourse(input: CourseInput): Promise<Saved<DashCourse>> {
+        let course: DashCourse;
+        if (live) {
+          const res = await saveCourseAction(null, { title: input.title, description: input.description, imageUrl: hostedUrl(input.thumbnailUrl), status: input.status });
+          if (!res.ok) return res;
+          course = res.data;
+        } else {
+          course = {
+            id: newId("c"),
+            slug: newId("course"),
+            tint: ["#dbe4ff", "#d1fae5", "#fde68a", "#fbcfe8"][courses.length % 4],
+            createdAt: now(),
+            ...input,
+          };
+        }
         setCourses((prev) => [course, ...prev]);
         log("course", `تم إنشاء دورة «${course.title}»`);
-        return course;
+        return saved(course);
       },
-      updateCourse(id: string, input: CourseInput) {
-        setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...input } : c)));
+      async updateCourse(id: string, input: CourseInput): Promise<Saved> {
+        if (live) {
+          const res = await patchCourse(id, { title: input.title, description: input.description, imageUrl: hostedUrl(input.thumbnailUrl), status: input.status });
+          if (!res.ok) return res;
+        } else {
+          setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...input } : c)));
+        }
         log("course", `تم تحديث دورة «${input.title}»`);
+        return saved(undefined);
       },
-      setCourseStatus(id: string, status: CourseStatus) {
-        setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
-        log("course", `تم ${status === "PUBLISHED" ? "نشر" : "إلغاء نشر"} «${courseById(id)?.title}»`);
+      async setCourseStatus(id: string, status: CourseStatus): Promise<Saved> {
+        if (live) {
+          const res = await patchCourse(id, { status });
+          if (!res.ok) return res;
+        } else {
+          setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
+        }
+        const verb = { PUBLISHED: "نشر", DRAFT: "إلغاء نشر", ARCHIVED: "أرشفة" }[status];
+        log("course", `تم ${verb} «${courseById(id)?.title}»`);
+        return saved(undefined);
       },
-      /** Removes the course with its lessons, unused codes and exams; students lose the enrollment. */
-      deleteCourse(id: string) {
+      /**
+       * Removes the course with its lessons, unused codes and exams; students lose the enrollment.
+       * The API refuses (409) while any of those exist — archive the course instead.
+       */
+      async deleteCourse(id: string): Promise<Saved> {
+        if (live) {
+          const res = await deleteCourseAction(id);
+          if (!res.ok) return res;
+        }
         log("course", `تم حذف دورة «${courseById(id)?.title}»`);
         setCourses((prev) => prev.filter((c) => c.id !== id));
         setLessons((prev) => prev.filter((l) => l.courseId !== id));
         setCodes((prev) => prev.filter((c) => c.courseId !== id));
         setExams((prev) => prev.filter((e) => e.courseId !== id));
         setStudents((prev) => prev.map((s) => ({ ...s, enrollments: s.enrollments.filter((e) => e.courseId !== id) })));
+        return saved(undefined);
       },
 
       /* Lessons */
-      createLesson(courseId: string, input: LessonInput) {
-        const lesson: DashLesson = { id: newId("l"), courseId, order: lessonsOf(courseId).length + 1, ...input };
+      /** Adds the lesson at `position` (1-based), or last. */
+      async createLesson(courseId: string, input: LessonInput, position?: number): Promise<Saved<DashLesson>> {
+        const { mediaId, videoSeconds, ...fields } = input;
+        const siblings = lessonsOf(courseId);
+        let lesson: DashLesson;
+        if (live) {
+          const res = await saveLessonAction(courseId, null, {
+            title: fields.title,
+            description: fields.description,
+            content: fields.content,
+            status: fields.status,
+            mediaId,
+            duration: videoSeconds,
+            order: Math.max(0, ...siblings.map((l) => l.savedOrder ?? 0)) + 1,
+          });
+          if (!res.ok) return res;
+          lesson = { ...res.data, order: siblings.length + 1 };
+        } else {
+          lesson = { id: newId("l"), courseId, order: siblings.length + 1, ...fields };
+        }
         setLessons((prev) => [...prev, lesson]);
         log("lesson", `تمت إضافة درس «${lesson.title}»`);
-        return lesson;
+        // The lesson exists either way; a failed move only leaves it last.
+        if (position && position <= siblings.length) await move([...lessons, lesson], lesson.id, position - 1);
+        return saved(lesson);
       },
-      updateLesson(id: string, input: LessonInput) {
-        setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, ...input } : l)));
+      async updateLesson(id: string, input: LessonInput): Promise<Saved> {
+        const { mediaId, videoSeconds, ...fields } = input;
+        const current = lessons.find((l) => l.id === id);
+        if (live && current) {
+          const res = await saveLessonAction(current.courseId, id, {
+            title: fields.title,
+            description: fields.description,
+            content: fields.content,
+            status: fields.status,
+            mediaId,
+            duration: videoSeconds,
+          });
+          if (!res.ok) return res;
+          setLessons((prev) => prev.map((l) => (l.id === id ? { ...res.data, order: l.order, savedOrder: l.savedOrder } : l)));
+        } else {
+          setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, ...fields } : l)));
+        }
+        return saved(undefined);
       },
-      deleteLesson(id: string) {
+      async setLessonStatus(id: string, status: LessonStatus): Promise<Saved> {
+        const current = lessons.find((l) => l.id === id);
+        if (live && current) {
+          const res = await saveLessonAction(current.courseId, id, { status });
+          if (!res.ok) return res;
+        }
+        setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+        return saved(undefined);
+      },
+      /** The API refuses (409) while the lesson has student progress or exams — archive it instead. */
+      async deleteLesson(id: string): Promise<Saved> {
         const lesson = lessons.find((l) => l.id === id);
-        if (!lesson) return;
+        if (!lesson) return saved(undefined);
+        if (live) {
+          const res = await deleteLessonAction(id);
+          if (!res.ok) return res;
+        }
         setLessons((prev) => renumber(prev.filter((l) => l.id !== id), lesson.courseId));
         log("lesson", `تم حذف درس «${lesson.title}»`);
+        return saved(undefined);
       },
       /** Moves a lesson to a new 0-based index within its course. */
-      moveLesson(id: string, toIndex: number) {
-        setLessons((prev) => {
-          const lesson = prev.find((l) => l.id === id);
-          if (!lesson) return prev;
-          const ordered = prev.filter((l) => l.courseId === lesson.courseId).sort((a, b) => a.order - b.order);
-          const from = ordered.findIndex((l) => l.id === id);
-          const to = Math.max(0, Math.min(ordered.length - 1, toIndex));
-          if (from === to) return prev;
-          ordered.splice(to, 0, ordered.splice(from, 1)[0]);
-          const position = new Map(ordered.map((l, i) => [l.id, i + 1]));
-          return prev.map((l) => (position.has(l.id) ? { ...l, order: position.get(l.id)! } : l));
-        });
-      },
+      moveLesson: (id: string, toIndex: number) => move(lessons, id, toIndex),
 
       /* Students */
       setStudentStatus(id: string, status: StudentStatus) {
@@ -235,7 +352,7 @@ function useAcademyState(seed: AcademySeed) {
         setProfile(next);
       },
     };
-  }, [profile, courses, lessons, students, codes, exams, submissions, website, media, activity, notify]);
+  }, [live, profile, courses, lessons, students, codes, exams, submissions, website, media, activity, notify]);
 }
 
 export type AcademyStore = ReturnType<typeof useAcademyState>;
