@@ -7,5 +7,5 @@ export function Container({ className, ...props }: ComponentProps<"div">) {
 
 /** Vertical rhythm for top-level page sections. */
 export function Section({ className, ...props }: ComponentProps<"section">) {
-  return <section className={cn("py-20 sm:py-24 lg:py-28", className)} {...props} />;
+  return <section className={cn("py-16 sm:py-24 lg:py-28", className)} {...props} />;
 }

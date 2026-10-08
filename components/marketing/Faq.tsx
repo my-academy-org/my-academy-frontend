@@ -8,8 +8,9 @@ import { RequestAcademyButton } from "./RequestAcademy";
 export function Faq() {
   return (
     <Section id="faq">
-      <Container className="grid gap-12 lg:grid-cols-[1fr_1.7fr] lg:gap-20">
-        <div className="lg:sticky lg:top-28 lg:self-start">
+      <Container className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.7fr] lg:gap-20">
+        {/* Below lg the wrapper dissolves so the contact note can sit after the questions */}
+        <div className="max-lg:contents lg:sticky lg:top-28 lg:self-start">
           <SectionHeader
             layout="stack"
             index="08"
@@ -17,7 +18,7 @@ export function Faq() {
             title="أسئلة قبل أن تبدأ"
             description="إجابات مختصرة عن الأكاديميات والنطاقات والقوالب والخطط."
           />
-          <div id="contact" className="mt-10 border-t border-line pt-6">
+          <div id="contact" className="mt-10 border-t border-line pt-6 max-lg:order-last max-lg:mt-0">
             <p className="font-bold text-ink-950">لديك سؤال آخر؟</p>
             <p className="mt-1.5 max-w-sm text-sm leading-7 text-ink-600">
               أرسل لنا تفاصيل أكاديميتك، وسيتواصل معك فريقنا للإجابة عن كل استفساراتك.

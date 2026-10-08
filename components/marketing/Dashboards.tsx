@@ -30,7 +30,7 @@ export function Dashboards() {
           description="المعلّم والطالب يعملان على نفس النظام وبنفس لغة التصميم — كلٌّ يرى ما يخصّه فقط."
         />
 
-        <div role="tablist" aria-label="لوحات التحكم" className="mt-12 flex gap-8 border-b border-white/10 sm:mt-14">
+        <div role="tablist" aria-label="لوحات التحكم" className="mt-10 flex gap-6 border-b border-white/10 sm:mt-14 sm:gap-8">
           {dashboardRoles.map((r) => (
             <button
               key={r.id}
@@ -56,7 +56,7 @@ export function Dashboards() {
           id="dashboard-panel"
           role="tabpanel"
           aria-labelledby={`tab-${active}`}
-          className="mt-10 grid items-center gap-8 lg:grid-cols-[1fr_2.2fr] lg:gap-14"
+          className="mt-8 grid grid-cols-1 items-center gap-8 sm:mt-10 lg:grid-cols-[1fr_2.2fr] lg:gap-14"
         >
           <div className="order-2 lg:order-1">
             <p className="text-lg leading-8 text-white/80">{role.summary}</p>
@@ -75,7 +75,7 @@ export function Dashboards() {
           </BrowserFrame>
         </div>
 
-        <ul className="mt-16 grid gap-x-8 gap-y-8 sm:grid-cols-3">
+        <ul className="mt-12 grid gap-x-8 gap-y-8 sm:mt-16 sm:grid-cols-3">
           {([
             { icon: "layers", title: "نظام تصميم موحّد", body: "نفس المكوّنات والتنقّل في كل اللوحات." },
             { icon: "shield", title: "صلاحيات دقيقة", body: "كل دور يصل فقط إلى ما يخصّه من بيانات." },

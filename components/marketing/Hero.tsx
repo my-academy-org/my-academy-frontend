@@ -10,33 +10,33 @@ const [modern, , premium] = templates;
 
 export function Hero() {
   return (
-    <section id="top" className="overflow-hidden pt-28 sm:pt-32 lg:pt-40">
+    <section id="top" className="overflow-hidden pt-24 sm:pt-32 lg:pt-40">
       <Container>
-        <div className="grid items-center gap-x-14 gap-y-14 pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pb-28">
+        <div className="grid grid-cols-1 items-center gap-x-14 gap-y-10 pb-14 sm:gap-y-14 sm:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pb-28">
           <div className="animate-fade-up">
             <p className="flex items-center gap-2.5 text-sm font-semibold text-ink-600">
               <span className="size-1.5 rounded-full bg-gold-500" aria-hidden="true" />
               منصة لإدارة الأكاديميات التعليمية
             </p>
 
-            <h1 className="mt-6 text-balance text-[2.375rem] font-bold leading-[1.3] text-ink-950 sm:text-[3.25rem] sm:leading-[1.25] xl:text-[3.625rem]">
+            <h1 className="mt-5 text-balance text-[clamp(1.875rem,9.6vw,2.375rem)] font-bold leading-[1.3] sm:mt-6 text-ink-950 sm:text-[3.25rem] sm:leading-[1.25] xl:text-[3.625rem]">
               أكاديميتك الإلكترونية الخاصة، بعلامتك{" "}
               <span className="whitespace-nowrap text-brand-700">ونطاقك وطلابك.</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-pretty text-base leading-8 text-ink-600 sm:text-lg sm:leading-9">
+            <p className="mt-5 max-w-xl text-pretty text-base leading-8 text-ink-600 sm:mt-6 sm:text-lg sm:leading-9">
               My Academy تمنح كل معلّم أكاديمية مستقلة بموقع احترافي ونطاق فرعي خاص، ولوحة تحكم واحدة لإدارة
               الدورات والدروس والطلاب والاختبارات — دون أي تعقيد تقني.
             </p>
 
-            <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <div className="mt-7 flex flex-col items-stretch gap-3 sm:mt-9 sm:flex-row sm:items-center">
               <RequestAcademyButton size="lg" withArrow />
               <Button href="/#platform" variant="secondary" size="lg">
                 استكشف المنصة
               </Button>
             </div>
 
-            <p className="mt-6 max-w-md text-sm leading-7 text-ink-500">
+            <p className="mt-5 max-w-md text-sm leading-7 text-ink-500 sm:mt-6">
               لا يوجد تسجيل ذاتي: يُنشئ فريقنا أكاديميتك وحسابك ويسلّمك بيانات الدخول.
             </p>
           </div>
@@ -61,11 +61,11 @@ export function Hero() {
       {/* Tenants */}
       <div className="border-t border-line">
         <Container>
-          <div className="grid lg:grid-cols-[1fr_2.8fr]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_2.8fr]">
             <p className="py-5 text-sm font-semibold leading-6 text-ink-500 lg:py-7 lg:pe-8">
               كل أكاديمية على نطاقها الخاص، ضمن منصة واحدة.
             </p>
-            <ul className="grid border-t border-line sm:grid-cols-3 lg:border-t-0">
+            <ul className="grid grid-cols-1 border-t border-line sm:grid-cols-3 lg:border-t-0">
               {templates.map((t) => (
                 <li
                   key={t.id}

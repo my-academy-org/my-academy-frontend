@@ -85,18 +85,19 @@ export function AcademyManageVisual() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[7.25rem_1fr] sm:grid-cols-[10rem_1fr]">
-        <ul className="space-y-1 border-e border-line bg-canvas p-2">
+      {/* Sections sit in a top tab row on phones, and in a sidebar from sm up */}
+      <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr]">
+        <ul className="flex gap-1 border-line bg-canvas p-1.5 max-sm:border-b sm:flex-col sm:border-e sm:p-2">
           {tabs.map((t, i) => (
             <li
               key={t.label}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold ring-1 transition-[background-color,color,box-shadow] duration-300",
+                "flex min-w-0 items-center rounded-lg font-semibold ring-1 transition-[background-color,color,box-shadow] duration-300 max-sm:flex-1 max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:py-1.5 max-sm:text-[0.625rem] sm:gap-2 sm:px-2.5 sm:py-2 sm:text-xs",
                 i === active ? "bg-white text-brand-700 shadow-card ring-line" : "text-ink-500 ring-transparent",
               )}
             >
               <Icon name={t.icon} className="size-4 shrink-0" />
-              <span className="flex-1">{t.label}</span>
+              <span className="max-w-full truncate sm:flex-1">{t.label}</span>
               <span className="text-[0.6875rem] tabular-nums text-ink-400 max-sm:hidden" dir="ltr">{t.count}</span>
             </li>
           ))}

@@ -128,7 +128,7 @@ export function DashboardMock({ role, className }: { role: Role; className?: str
 
   return (
     <div className={cn("@container", className)} aria-hidden="true">
-      <div className="flex bg-canvas text-[clamp(6.5px,1.2cqw,12.5px)] text-ink-900 select-none">
+      <div className="flex bg-canvas text-[clamp(6.5px,1.2cqw,12.5px)] text-ink-900 @max-xl:text-[clamp(7.5px,2.4cqw,11px)] select-none">
         {/* Sidebar */}
         <aside className="flex w-[15.5em] shrink-0 flex-col border-e border-line bg-white p-[1.1em] @max-xl:hidden">
           <div className="mb-[1.6em] flex items-center gap-[0.6em]">

@@ -19,7 +19,7 @@ export function FeatureCard({
 }) {
   return (
     <Reveal delay={delay} className={cn("flex flex-col rounded-2xl bg-canvas ring-1 ring-inset ring-line", className)}>
-      <div className="flex min-h-52 flex-1 items-center justify-center px-6 pt-8 pb-2">{children}</div>
+      <div className="flex min-h-52 flex-1 items-center justify-center px-4 pt-6 pb-2 sm:px-6 sm:pt-8">{children}</div>
       <div className="p-6 sm:p-7">
         <h3 className="text-lg font-bold text-ink-950">{feature.title}</h3>
         <p className="mt-2 text-[0.9375rem] leading-7 text-ink-600">{feature.body}</p>
