@@ -260,10 +260,10 @@ function Bars({ data }: { data: number[] }) {
         <div key={i} className="flex h-full flex-1 flex-col justify-end">
           <div
             className={cn(
-              "w-full rounded-t-[0.35em]",
+              "w-full origin-bottom animate-grow-y rounded-t-[0.35em]",
               i === data.length - 1 ? "bg-brand-600" : "bg-brand-100",
             )}
-            style={{ height: `${(d / max) * 100}%` }}
+            style={{ height: `${(d / max) * 100}%`, animationDelay: `${200 + i * 45}ms` }}
           />
         </div>
       ))}

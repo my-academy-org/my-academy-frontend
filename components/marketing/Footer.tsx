@@ -5,7 +5,7 @@ import { footerColumns } from "@/lib/site";
 
 export function Footer() {
   return (
-    <footer className="border-t border-line bg-white">
+    <footer className="bg-white">
       <Container className="py-14 sm:py-16">
         <div className="grid gap-12 md:grid-cols-[1.4fr_2fr]">
           <div className="max-w-sm">
@@ -13,7 +13,7 @@ export function Footer() {
               <Logo />
             </Link>
             <p className="mt-5 text-[0.9375rem] leading-7 text-ink-600">
-              منصة سحابية لإنشاء وإدارة الأكاديميات التعليمية — أكاديمية مستقلة لكل معلّم، على بنية واحدة موثوقة.
+              منصة لإنشاء وإدارة الأكاديميات التعليمية — أكاديمية مستقلة لكل معلّم، على بنية واحدة موثوقة.
             </p>
           </div>
 

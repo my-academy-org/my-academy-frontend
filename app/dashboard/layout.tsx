@@ -86,11 +86,6 @@ export default async function AcademyDashboardLayout({ children }: LayoutProps<"
       <AcademyStoreProvider seed={seed}>
         <UpgradeProvider>
           <AcademyShell>
-            {ACADEMY_API_URL && (
-              <Notice tone="warning" className="mb-6">
-                الدورات والدروس وصفحة الهبوط في «موقع الأكاديمية» تُحفظ على الخادم. باقي أقسام اللوحة لم تُربط بعد: ما تضيفه أو تعدّله فيها لا يُحفظ حالياً.
-              </Notice>
-            )}
             {seed.loadError && (
               <Notice tone="warning" className="mb-6">
                 تعذّر تحميل الدورات والدروس: {seed.loadError}

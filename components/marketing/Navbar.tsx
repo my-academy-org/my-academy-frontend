@@ -40,7 +40,7 @@ export function Navbar() {
       className={cn(
         "fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow] duration-300",
         solid
-          ? "border-b border-line bg-canvas/90 shadow-[0_1px_0_rgb(16_28_24/0.02)] backdrop-blur-md"
+          ? "border-b border-line bg-white/90 backdrop-blur-md"
           : "border-b border-transparent",
       )}
     >
@@ -55,7 +55,7 @@ export function Navbar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="rounded-lg px-3 py-2 text-[0.9375rem] font-semibold text-ink-600 transition-colors hover:bg-muted hover:text-ink-950"
+                  className="px-3 py-2 text-[0.9375rem] font-medium text-ink-600 transition-colors hover:text-ink-950"
                 >
                   {item.label}
                 </Link>
@@ -88,7 +88,7 @@ export function Navbar() {
       <div
         id="mobile-menu"
         hidden={!menuOpen}
-        className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-line bg-canvas lg:hidden"
+        className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-line bg-white lg:hidden"
       >
         <Container className="py-4">
           <ul className="flex flex-col">

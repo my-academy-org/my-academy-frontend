@@ -48,6 +48,21 @@
 
   --animate-fade-up: fade-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 
+  --animate-grow-x: grow-x 3.2s linear both;
+  --animate-grow-y: grow-y 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes grow-y {
+    from {
+      transform: scaleY(0);
+    }
+  }
+
   @keyframes fade-up {
     from {
       opacity: 0;
@@ -95,14 +110,7 @@
 }
 
 @layer components {
-  /* Faint blueprint grid used behind the hero and CTA band */
-  .bg-grid {
-    background-image:
-      linear-gradient(to right, rgb(16 28 24 / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(16 28 24 / 0.05) 1px, transparent 1px);
-    background-size: 56px 56px;
-  }
-
+  /* Faint blueprint grid used behind the dark auth panels */
   .bg-grid-dark {
     background-image:
       linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
@@ -112,6 +120,18 @@
 
   .mask-fade-y {
     mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+  }
+
+  /* <Reveal>: hidden only while waiting below the fold */
+  .reveal {
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .reveal[data-reveal="pending"] {
+    opacity: 0;
+    transform: translateY(20px);
   }
 
   /* Native <dialog> entrance / exit */
@@ -155,6 +175,51 @@
       background: rgb(11 21 18 / 0);
     }
   }
+}
+
+/* ------------------------------------------------------------------
+   Marketing site: logo green + gold on white paper, with Ink for the
+   dark bands. Scoped here so the dashboards keep the base tokens.
+------------------------------------------------------------------- */
+.marketing {
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink-950: #0e1512;
+  --color-ink-900: #17201b;
+  --color-ink-800: #26302b;
+  --color-ink-700: #3a443f;
+  --color-ink-600: #535d57;
+  --color-ink-500: #6c7670;
+  --color-ink-400: #969e99;
+  --color-ink-300: #c2c8c4;
+
+  --color-canvas: #f6f7f4;
+  --color-muted: #eceee9;
+  --color-line: #e2e5df;
+  --color-line-strong: #cbd0c8;
+
+  --color-brand-50: #eef5f1;
+  --color-brand-100: #d8eae1;
+  --color-brand-200: #b1d5c5;
+  --color-brand-300: #7fb9a2;
+  --color-brand-400: #47977c;
+  --color-brand-500: #23785e;
+  --color-brand-600: #18624c;
+  --color-brand-700: #124d3b;
+  --color-brand-800: #0e3d2f;
+  --color-brand-900: #0b3026;
+  --color-brand-950: #07201a;
+
+  --color-gold-50: #fbf6ea;
+  --color-gold-100: #f4e6c6;
+  --color-gold-300: #e3c07c;
+  --color-gold-400: #d6ab57;
+  --color-gold-500: #c9993f;
+  --color-gold-600: #a57a2b;
+
+  background: #fff;
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
 }
 
 /* ------------------------------------------------------------------

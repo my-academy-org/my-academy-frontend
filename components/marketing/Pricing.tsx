@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Container, Section } from "@/components/ui/Container";
 import { Icon } from "@/components/ui/Icon";
+import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { cn } from "@/lib/cn";
 import { planComparison, plans } from "@/lib/site";
@@ -11,39 +12,40 @@ export function Pricing() {
     <Section id="pricing">
       <Container>
         <SectionHeader
+          index="06"
           eyebrow="الخطط"
           title="خطتان واضحتان، بلا تعقيد"
           description="الفرق الوحيد هو من يدير محتوى موقع أكاديميتك: فريقنا نيابةً عنك، أو أنت مباشرةً."
         />
 
-        <div className="mx-auto mt-14 grid max-w-4xl gap-5 sm:mt-16 md:grid-cols-2 md:gap-6">
-          {plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} />
+        <div className="mt-12 grid gap-5 sm:mt-16 md:grid-cols-2 md:gap-6">
+          {plans.map((plan, i) => (
+            <PlanCard key={plan.id} plan={plan} delay={i * 100} />
           ))}
         </div>
 
         {/* Comparison */}
-        <div className="mx-auto mt-12 max-w-4xl overflow-hidden rounded-2xl border border-line bg-white shadow-card">
-          <table className="w-full text-sm sm:text-[0.9375rem]">
+        <Reveal className="mt-14">
+          <table className="w-full border-t border-ink-900 text-sm sm:text-[0.9375rem]">
             <caption className="sr-only">مقارنة بين خطتي Basic و Pro</caption>
             <thead>
-              <tr className="border-b border-line bg-canvas text-ink-500">
-                <th scope="col" className="px-4 py-3.5 text-start font-semibold sm:px-6">الميزة</th>
-                <th scope="col" className="w-[26%] px-2 py-3.5 text-center font-bold text-ink-900" dir="ltr">Basic</th>
-                <th scope="col" className="w-[26%] px-2 py-3.5 text-center font-bold text-brand-700" dir="ltr">Pro</th>
+              <tr className="border-b border-line text-ink-500">
+                <th scope="col" className="py-4 pe-4 text-start font-semibold">الميزة</th>
+                <th scope="col" className="w-[26%] px-2 py-4 text-center font-bold text-ink-900" dir="ltr">Basic</th>
+                <th scope="col" className="w-[26%] px-2 py-4 text-center font-bold text-brand-700" dir="ltr">Pro</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-line border-b border-line">
               {planComparison.map((row) => (
                 <tr key={row.label}>
-                  <th scope="row" className="px-4 py-3.5 text-start font-semibold text-ink-800 sm:px-6">{row.label}</th>
+                  <th scope="row" className="py-4 pe-4 text-start font-semibold text-ink-800">{row.label}</th>
                   <Cell value={row.basic} />
                   <Cell value={row.pro} />
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Reveal>
       </Container>
     </Section>
   );
@@ -51,7 +53,7 @@ export function Pricing() {
 
 function Cell({ value }: { value: string | boolean }) {
   return (
-    <td className="px-2 py-3.5 text-center">
+    <td className="px-2 py-4 text-center">
       {typeof value === "string" ? (
         <span className="text-xs font-semibold text-ink-600 sm:text-sm">{value}</span>
       ) : value ? (
@@ -63,34 +65,30 @@ function Cell({ value }: { value: string | boolean }) {
   );
 }
 
-export function PlanCard({ plan }: { plan: (typeof plans)[number] }) {
+export function PlanCard({ plan, delay }: { plan: (typeof plans)[number]; delay?: number }) {
   const featured = plan.featured;
   return (
-    <div
+    <Reveal
+      delay={delay}
       className={cn(
-        "relative flex flex-col rounded-3xl p-7 sm:p-8",
-        featured
-          ? "bg-brand-900 text-white shadow-float ring-1 ring-brand-800"
-          : "border border-line bg-white shadow-card",
+        "flex flex-col rounded-2xl p-7 sm:p-9",
+        featured ? "bg-ink-950 text-white" : "bg-white ring-1 ring-inset ring-line-strong",
       )}
     >
-      {featured && (
-        <div className="bg-grid-dark pointer-events-none absolute inset-0 rounded-3xl [mask-image:linear-gradient(to_bottom,#000,transparent_60%)]" aria-hidden="true" />
-      )}
-      <div className="relative flex items-center justify-between">
-        <h3 className="text-2xl font-extrabold" dir="ltr">{plan.name}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-2xl font-bold" dir="ltr">{plan.name}</h3>
         {featured && <Badge tone="accent">الأكثر مرونة</Badge>}
       </div>
-      <p className={cn("relative mt-3 min-h-14 text-[0.9375rem] leading-7", featured ? "text-white/70" : "text-ink-600")}>
+      <p className={cn("mt-3 min-h-14 text-[0.9375rem] leading-7", featured ? "text-white/65" : "text-ink-600")}>
         {plan.tagline}
       </p>
 
-      <div className={cn("relative mt-6 border-y py-5", featured ? "border-white/10" : "border-line")}>
+      <div className={cn("mt-6 border-y py-5", featured ? "border-white/10" : "border-line")}>
         {plan.price ? (
-          <p className="text-4xl font-extrabold">{plan.price}</p>
+          <p className="text-4xl font-bold">{plan.price}</p>
         ) : (
           <>
-            <p className="text-2xl font-extrabold">سعر حسب حجم الأكاديمية</p>
+            <p className="text-xl font-bold">سعر حسب حجم الأكاديمية</p>
             <p className={cn("mt-1 text-sm", featured ? "text-white/55" : "text-ink-500")}>
               يتواصل معك فريقنا بعرض مناسب لعدد طلابك.
             </p>
@@ -99,21 +97,18 @@ export function PlanCard({ plan }: { plan: (typeof plans)[number] }) {
       </div>
 
       {plan.includesLabel && (
-        <p className={cn("relative mt-6 text-sm font-bold", featured ? "text-gold-300" : "text-ink-900")}>
+        <p className={cn("mt-6 text-sm font-bold", featured ? "text-gold-300" : "text-ink-900")}>
           {plan.includesLabel}
         </p>
       )}
-      <ul className={cn("relative flex-1 space-y-3.5", plan.includesLabel ? "mt-4" : "mt-6")}>
+      <ul className={cn("flex-1 space-y-3.5", plan.includesLabel ? "mt-4" : "mt-6")}>
         {plan.items.map((item) => (
           <li key={item} className="flex items-start gap-3 text-[0.9375rem]">
-            <span
-              className={cn(
-                "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full",
-                featured ? "bg-gold-400/15 text-gold-300" : "bg-brand-50 text-brand-700",
-              )}
-            >
-              <Icon name="check" className="size-3" strokeWidth={3} />
-            </span>
+            <Icon
+              name="check"
+              className={cn("mt-1 size-4 shrink-0", featured ? "text-gold-300" : "text-brand-600")}
+              strokeWidth={2.5}
+            />
             <span className={featured ? "text-white/90" : "text-ink-700"}>{item}</span>
           </li>
         ))}
@@ -124,10 +119,10 @@ export function PlanCard({ plan }: { plan: (typeof plans)[number] }) {
         size="lg"
         variant={featured ? "inverse" : "secondary"}
         withArrow
-        className="relative mt-8 w-full"
+        className="mt-9 w-full"
       >
         {`ابدأ بخطة ${plan.name}`}
       </RequestAcademyButton>
-    </div>
+    </Reveal>
   );
 }
