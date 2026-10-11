@@ -13,6 +13,7 @@ export const dash = {
   editLesson: (id: string) => `/dashboard/lessons/${id}/edit`,
   /** The lesson's video played through this app (lib/academy/video.ts). */
   lessonVideo: (id: string) => `/dashboard/lessons/${id}/video`,
+  lessonVideoKey: (id: string) => `/dashboard/lessons/${id}/video/key`,
   students: "/dashboard/students",
   student: (id: string) => `/dashboard/students/${id}`,
   codes: "/dashboard/codes",

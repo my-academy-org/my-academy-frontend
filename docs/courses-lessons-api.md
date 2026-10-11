@@ -34,6 +34,7 @@
 | `/lessons` | `GET` | ✅ | ✅ | ✅ |
 | `/lessons/:id` | `GET` | ✅ (مشترك فقط) | ✅ | ✅ |
 | `/lessons/:id/video` | `GET` | ✅ (مشترك فقط) | ✅ | ✅ |
+| `/lessons/:id/video/key` | `GET` | ✅ (مشترك فقط) | ✅ | ✅ |
 | `/lessons/video/upload-url` | `POST` | — | ✅ | ✅ |
 | `/lessons/video` | `POST` | — | ✅ | ✅ |
 | `/lessons` | `POST` | — | ✅ | ✅ |
@@ -71,7 +72,7 @@
 ### شكل الأخطاء
 
 ```json
-{ "statusCode": 404, "message": "Course #9 not found", "error": "Not Found" }
+{ "statusCode": 404, "message": "الكورس رقم 9 غير موجود", "error": "Not Found" }
 ```
 
 في أخطاء الـ validation (`400`) يكون `message` **مصفوفة** نصوص. الـ API يرفض أي حقل غير معرّف في الـ body، فلا ترسل حقولًا إضافية ولا `""` لحقل اختياري (احذف الحقل بدلًا من ذلك). الأرقام تُرسل كأرقام وليس نصوصًا.
@@ -137,23 +138,23 @@
 **Response `201`:**
 
 ```json
-{ "message": "Course created successfully", "course": { "id": 12, "...": "..." } }
+{ "message": "تم إنشاء الكورس بنجاح", "course": { "id": 12, "...": "..." } }
 ```
 
-أخطاء خاصة: `400` `tenantId is required` (سوبر أدمن بدون `tenantId`)، `404` `Tenant #x not found`.
+أخطاء خاصة: `400` `معرّف المستأجر (tenantId) مطلوب` (سوبر أدمن بدون `tenantId`)، `404` `المستأجر رقم x غير موجود`.
 
 ### `PATCH /courses/:id` — تعديل / نشر
 
 نفس حقول الإنشاء وكلها اختيارية، **ما عدا `tenantId`** (غير مسموح؛ الكورس لا ينتقل لأكاديمية أخرى). النشر: `{ "status": "PUBLISHED" }`.
 
 ```json
-{ "message": "Course updated successfully", "course": { "id": 12, "...": "..." } }
+{ "message": "تم تحديث الكورس بنجاح", "course": { "id": 12, "...": "..." } }
 ```
 
 ### `DELETE /courses/:id` — حذف
 
 ```json
-{ "message": "Course deleted successfully", "id": 12 }
+{ "message": "تم حذف الكورس بنجاح", "id": 12 }
 ```
 
 يرجع `409` إذا كان للكورس دروس أو امتحانات أو اشتراكات أو أكواد اشتراك. في هذه الحالة اعرض على المستخدم **الأرشفة** بدل الحذف: `PATCH` بـ `{ "status": "ARCHIVED" }`.
@@ -200,11 +201,13 @@
   "videoId": "tenants/3/courses/12/videos/6f1c....mp4",
   "videoType": "BACKBLAZE",
   "mediaId": 77,
+  "media": { "status": "READY" },
   "course": { "id": 12, "title": "أساسيات البرمجة" }
 }
 ```
 
-- `videoUrl` **مسار نسبي على الـ API** وليس رابطًا للتخزين. أضف قبله الـ Base URL وضعه في `<video src>` (التفاصيل في `GET /lessons/:id/video` بالأسفل). يكون `null` إذا لم يكن للدرس فيديو.
+- `videoUrl` **مسار نسبي على الـ API** وليس رابطًا للتخزين. أضف قبله الـ Base URL وشغّله بمشغّل HLS (التفاصيل في `GET /lessons/:id/video` بالأسفل). يكون `null` إذا لم يكن للدرس فيديو.
+- `media.status`: `PROCESSING` (الفيديو يُجهَّز ولا يمكن تشغيله بعد)، `READY` (جاهز)، `FAILED` (فشل التجهيز). `media` يكون `null` إذا لم يكن للدرس فيديو.
 - `videoId` و `mediaId` للاستخدام الداخلي؛ الفرونت يحتاج `mediaId` فقط ليعرف الفيديو الحالي عند التعديل.
 - `content` قد يكون `null`.
 
@@ -226,25 +229,54 @@
 | الحالة | الرد |
 | --- | --- |
 | الطالب مشترك في الكورس | `200` |
-| الطالب غير مشترك (أو اشتراكه ملغي) | `403` `You are not enrolled in this course` |
+| الطالب غير مشترك (أو اشتراكه ملغي) | `403` `أنت غير مسجل في هذا الكورس` |
 | الدرس أو كورسه غير منشور (للطالب)، أو خارج الأكاديمية | `404` |
 
-### `GET /lessons/:id/video` — تشغيل الفيديو (streaming)
+### `GET /lessons/:id/video` — تشغيل الفيديو (HLS مشفّر)
 
-الفيديو خاص ولا يوجد له رابط مباشر على التخزين؛ الباك يتأكد من صلاحية المستخدم ثم يبثّ الملف بنفسه. المسار هو نفسه قيمة `videoUrl` في الدرس التفصيلي.
+الفيديو مخزَّن كمقاطع HLS **مشفّرة** (AES-128). هذا المسار يرجع الـ playlist (`application/vnd.apple.mpegurl`)، وهو نفسه قيمة `videoUrl` في الدرس التفصيلي:
+
+- المقاطع نفسها تُحمَّل **من Backblaze مباشرة** بروابط موقّعة داخل الـ playlist، ولا تمرّ على الـ API.
+- مفتاح فكّ التشفير يأتي من `GET /lessons/:id/video/key` (المشغّل يطلبه تلقائيًا)، ولا يُعطى إلا لمستخدم مسجّل وله صلاحية على الدرس. روابط المقاطع وحدها لا تشغّل الفيديو.
+
+التشغيل بـ [hls.js](https://github.com/video-dev/hls.js) (`npm i hls.js`):
 
 ```tsx
-<video
-  src={`${process.env.NEXT_PUBLIC_API_URL}${lesson.videoUrl}`}
-  controls
-  controlsList="nodownload"
-/>
+import Hls from 'hls.js';
+
+const API = process.env.NEXT_PUBLIC_API_URL!;
+
+useEffect(() => {
+  const video = videoRef.current;
+  if (!video || !lesson.videoUrl || lesson.media?.status !== 'READY') return;
+  const src = `${API}${lesson.videoUrl}`;
+
+  if (Hls.isSupported()) {
+    const hls = new Hls({
+      // الكوكي تُرسل لطلبات الـ API فقط (الـ playlist والمفتاح)، وليس لـ Backblaze.
+      xhrSetup: (xhr, url) => {
+        xhr.withCredentials = url.startsWith(API);
+      },
+    });
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    return () => hls.destroy();
+  }
+  // Safari على iPhone يشغّل HLS بدون مكتبة.
+  video.src = src;
+}, [lesson.videoUrl, lesson.media?.status]);
+
+<video ref={videoRef} controls controlsList="nodownload" />
 ```
 
-- المتصفح يرسل كوكي الجلسة تلقائيًا مع طلب الفيديو لأن الفرونت والـ API على نفس الموقع (`*.my-academy.online`، ومحليًا `localhost`). **لا تضع** `crossOrigin` على عنصر الـ `<video>`.
-- يدعم `Range`، فالتقديم والتأخير يعملان بدون أي كود إضافي (`200` للملف كاملًا و `206` للجزء المطلوب).
+- **لا تضع** `crossOrigin` على عنصر الـ `<video>`.
 - نفس صلاحيات `GET /lessons/:id`: `401` بدون جلسة، `403` لطالب غير مشترك، `404` إذا لم يكن الدرس متاحًا أو ليس له فيديو.
-- الجلسة مدتها ساعة. إذا انتهت أثناء المشاهدة تفشل طلبات الفيديو التالية بـ `401`، فجدّد الجلسة قبل انتهائها في صفحة الدرس.
+- `409` `الفيديو ما زال قيد المعالجة`: الفيديو لم يجهز بعد. `409` `تعذرت معالجة الفيديو`: فشل تجهيزه، ويحتاج المدرس إعادة تسجيله (`POST /lessons/video` بنفس الـ `key`) أو رفعه من جديد.
+- الـ playlist والمفتاح يُطلبان مرة واحدة عند بدء التشغيل، وروابط المقاطع صالحة 12 ساعة، فانتهاء الجلسة أثناء المشاهدة لا يقطع الفيديو. إعادة تحميل الصفحة تحتاج جلسة سارية.
+
+### `GET /lessons/:id/video/key` — مفتاح التشفير
+
+يرجع 16 بايت (`application/octet-stream`). لا يُستدعى يدويًا: عنوانه مكتوب داخل الـ playlist والمشغّل يطلبه بنفسه. نفس صلاحيات وأخطاء المسار السابق.
 
 ### `POST /lessons` — إنشاء (المدرس / السوبر أدمن)
 
@@ -264,16 +296,16 @@
 **Response `201`:**
 
 ```json
-{ "message": "Lesson created successfully", "lesson": { "id": 40, "...": "..." } }
+{ "message": "تم إنشاء الدرس بنجاح", "lesson": { "id": 40, "...": "..." } }
 ```
 
 > `lesson.videoUrl` في رد الإنشاء يكون `null`. مسار التشغيل هو `/lessons/:id/video`، ويرجع جاهزًا في `GET /lessons/:id`.
 
 | الخطأ | السبب |
 | --- | --- |
-| `404` `Course #x not found` | الكورس غير موجود أو ليس في أكاديمية المدرس |
-| `400` `Video #x not found. Upload the video first.` | الـ `mediaId` غير موجود، أو ليس فيديو، أو تابع لأكاديمية أخرى |
-| `409` `Video #x is already used by lesson #y` | الفيديو مستخدم في درس آخر (كل فيديو لدرس واحد) |
+| `404` `الكورس رقم x غير موجود` | الكورس غير موجود أو ليس في أكاديمية المدرس |
+| `400` `الفيديو رقم x غير موجود. قم برفع الفيديو أولاً.` | الـ `mediaId` غير موجود، أو ليس فيديو، أو تابع لأكاديمية أخرى |
+| `409` `الفيديو رقم x مستخدم بالفعل في الدرس رقم y` | الفيديو مستخدم في درس آخر (كل فيديو لدرس واحد) |
 
 ### `PATCH /lessons/:id` — تعديل / نشر / تغيير الفيديو
 
@@ -283,7 +315,7 @@
 - **تغيير الفيديو:** ارفع الفيديو الجديد وسجّله، ثم أرسل `{ "mediaId": <الجديد> }`. الفيديو القديم يُحذف تلقائيًا من التخزين.
 
 ```json
-{ "message": "Lesson updated successfully", "lesson": { "id": 40, "videoUrl": "/lessons/40/video", "...": "..." } }
+{ "message": "تم تحديث الدرس بنجاح", "lesson": { "id": 40, "videoUrl": "/lessons/40/video", "...": "..." } }
 ```
 
 رد التعديل يحتوي الدرس التفصيلي كاملًا مع `videoUrl` جاهز. أخطاء الفيديو (`400` / `409`) مثل الإنشاء.
@@ -291,7 +323,7 @@
 ### `DELETE /lessons/:id` — حذف
 
 ```json
-{ "message": "Lesson deleted successfully", "id": 40 }
+{ "message": "تم حذف الدرس بنجاح", "id": 40 }
 ```
 
 يحذف الدرس وفيديوه. يرجع `409` إذا كان للدرس تقدّم طلاب أو امتحانات؛ اعرض **الأرشفة** بدلًا منه: `PATCH` بـ `{ "status": "ARCHIVED" }`.
@@ -354,7 +386,7 @@
 
 ```json
 {
-  "message": "Video saved successfully",
+  "message": "تم حفظ الفيديو بنجاح",
   "media": {
     "id": 77,
     "tenantId": 3,
@@ -366,19 +398,21 @@
     "mimeType": "video/mp4",
     "size": 104857600,
     "duration": 540,
+    "status": "PROCESSING",
     "createdAt": "2026-10-07T17:00:00.000Z"
   }
 }
 ```
 
-- استخدم `media.id` كـ `mediaId` في إنشاء / تعديل الدرس.
+- استخدم `media.id` كـ `mediaId` في إنشاء / تعديل الدرس. يمكن إنشاء الدرس مباشرة دون انتظار التجهيز.
+- `media.status` يبدأ `PROCESSING`: الباك يحوّل الفيديو في الخلفية إلى HLS مشفّر، ثم يصبح `READY` (أو `FAILED`). تابع الحالة من `media.status` في `GET /lessons/:id`.
 - `media.url` **ليس رابط تشغيل** (التخزين خاص). التشغيل دائمًا عبر `GET /lessons/:id/video`.
-- استدعاء المسار مرتين بنفس الـ `key` يرجع نفس الصف.
+- استدعاء المسار مرتين بنفس الـ `key` يرجع نفس الصف، وإذا كانت حالته `FAILED` يعيد محاولة التجهيز.
 
 | الخطأ | السبب |
 | --- | --- |
-| `400` `This key is not valid` | `key` لم يصدر من الخطوة 5.1، أو تابع لأكاديمية أخرى |
-| `400` `The video has not been uploaded yet` | الرفع لم يكتمل أو فشل |
+| `400` `هذا المفتاح غير صالح` | `key` لم يصدر من الخطوة 5.1، أو تابع لأكاديمية أخرى |
+| `400` `لم يتم رفع الفيديو بعد` | الرفع لم يكتمل أو فشل |
 
 ### مثال كامل (client)
 
@@ -475,7 +509,7 @@ await createLesson({ courseId, title, mediaId, status: 'DRAFT' });
 3. كل درس فيه `enrolled`:
    - `true` → يفتح صفحة الدرس.
    - `false` → يظهر مقفولًا مع زر الاشتراك (إدخال كود: `POST /enrollments/redeem` بـ `{ "code": "..." }`).
-4. **صفحة الدرس:** `GET /lessons/:id` ثم `<video src={API_URL + lesson.videoUrl} controls />` وعرض `content`.
+4. **صفحة الدرس:** `GET /lessons/:id` ثم تشغيل `API_URL + lesson.videoUrl` بـ hls.js (راجع `GET /lessons/:id/video`) وعرض `content`.
    - `403` → الطالب غير مشترك، حوّله لصفحة الاشتراك.
    - `404` → الدرس غير متاح.
 
@@ -549,10 +583,11 @@ export interface LessonSummary {
 
 export interface LessonDetail extends Omit<LessonSummary, 'enrolled'> {
   content: string | null;
-  videoUrl: string | null; // مسار نسبي على الـ API: /lessons/:id/video
+  videoUrl: string | null; // مسار نسبي على الـ API: /lessons/:id/video (HLS playlist)
   videoId: string | null;
   videoType: string | null;
   mediaId: number | null;
+  media: { status: MediaStatus } | null;
   course: { id: number; title: string };
 }
 
@@ -575,6 +610,8 @@ export interface UploadUrl {
   expiresIn: number; // ثوانٍ
 }
 
+export type MediaStatus = 'PROCESSING' | 'READY' | 'FAILED';
+
 export interface Media {
   id: number;
   tenantId: number;
@@ -586,6 +623,7 @@ export interface Media {
   mimeType: string | null;
   size: number; // bytes
   duration: number | null;
+  status: MediaStatus;
   createdAt: string;
 }
 ```
@@ -600,7 +638,8 @@ export interface Media {
 - [ ] لا يُرسل `tenantId` في تعديل الكورس ولا `courseId` في تعديل الدرس.
 - [ ] إضافة الدرس: رفع الفيديو ← تسجيله ← إنشاء الدرس بالـ `mediaId`، مع شريط تقدّم.
 - [ ] `Content-Type` في الـ `PUT` مطابق لما أُرسل في `upload-url`.
-- [ ] `<video src>` = الـ Base URL + `videoUrl`، بدون `crossOrigin`، مع تجديد الجلسة في الدروس الطويلة.
+- [ ] الفيديو يُشغَّل بـ hls.js من الـ Base URL + `videoUrl`، و `withCredentials` لطلبات الـ API فقط، بدون `crossOrigin` على `<video>`.
+- [ ] الدرس الذي `media.status` فيه ليس `READY` يعرض "الفيديو قيد التجهيز" بدل المشغّل.
 - [ ] الطالب: الدروس التي `enrolled: false` تظهر مقفولة، و `403` من `GET /lessons/:id` يحوّل لصفحة الاشتراك.
 - [ ] `409` عند الحذف يعرض خيار الأرشفة.
 - [ ] `404` يُعامل كـ "غير موجود" سواء كان العنصر محذوفًا أو خارج صلاحية المستخدم.

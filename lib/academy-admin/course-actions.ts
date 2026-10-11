@@ -11,6 +11,7 @@ import {
   type LessonDetail,
   type LessonStatus,
   type Media,
+  type MediaStatus,
   type UploadUrl,
 } from "@/lib/academy/courses";
 import { lessonVideoSrc } from "@/lib/academy/video";
@@ -117,9 +118,15 @@ export async function deleteLessonAction(id: string): Promise<ApiResult<null>> {
   return mapped(await coursesRequest(token, `/lessons/${lessonId}`, { method: "DELETE" }), () => null);
 }
 
-export type LessonForEdit = { content: string; videoUrl: string | null };
+export type LessonForEdit = {
+  content: string;
+  /** The HLS playlist of the current video; playable once `videoStatus` is `READY`. */
+  videoUrl: string | null;
+  /** Null without a video. */
+  videoStatus: MediaStatus | null;
+};
 
-/** GET /lessons/:id — what the list leaves out: the text and the address the current video streams from. */
+/** GET /lessons/:id — what the list leaves out: the text, where the current video plays from and whether it is ready. */
 export async function loadLessonAction(id: string): Promise<ApiResult<LessonForEdit>> {
   const token = await ownerToken();
   if (!token) return sessionExpired;
@@ -127,7 +134,26 @@ export async function loadLessonAction(id: string): Promise<ApiResult<LessonForE
   if (!lessonId) return notFound;
   const res = await fetchLesson(token, lessonId);
   if (!res.ok) return res;
-  return { ok: true, data: { content: res.data.content ?? "", videoUrl: await lessonVideoSrc(res.data.videoUrl, dash.lessonVideo(id)) } };
+  return {
+    ok: true,
+    data: {
+      content: res.data.content ?? "",
+      videoUrl: await lessonVideoSrc(res.data.videoUrl, dash.lessonVideo(id)),
+      videoStatus: res.data.media?.status ?? null,
+    },
+  };
+}
+
+/** POST /lessons/video with the key of the lesson's own video — starts processing again after it `FAILED`. */
+export async function retryLessonVideoAction(id: string): Promise<ApiResult<MediaStatus>> {
+  const token = await ownerToken();
+  if (!token) return sessionExpired;
+  const lessonId = apiId(id);
+  if (!lessonId) return notFound;
+  const lesson = await fetchLesson(token, lessonId);
+  if (!lesson.ok) return lesson;
+  if (!lesson.data.videoId) return notFound;
+  return mapped(await coursesRequest<{ media: Media }>(token, "/lessons/video", { method: "POST", body: { key: lesson.data.videoId } }), (d) => d.media.status);
 }
 
 /** POST /lessons/video/upload-url — a one-hour link the browser PUTs the file to, straight into storage. */
@@ -139,7 +165,10 @@ export async function requestVideoUploadAction(courseId: string, fileName: strin
   return coursesRequest<UploadUrl>(token, "/lessons/video/upload-url", { method: "POST", body: { courseId: course, fileName, contentType } });
 }
 
-/** POST /lessons/video — confirms the file arrived and returns the `mediaId` a lesson is created with. */
+/**
+ * POST /lessons/video — confirms the file arrived and returns the `mediaId` a lesson is created with.
+ * The video is then processed in the background; the lesson can be saved without waiting for it.
+ */
 export async function registerVideoAction(key: string, fileName: string, duration?: number): Promise<ApiResult<number>> {
   const token = await ownerToken();
   if (!token) return sessionExpired;

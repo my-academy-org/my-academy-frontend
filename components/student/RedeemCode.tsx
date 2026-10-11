@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input } from "@/components/ui/Input";
@@ -29,6 +29,9 @@ function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [code, setCode] = useState("");
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  // A page holds several of these dialogs (one per button): each needs ids of its own, or its submit button reaches another's form.
+  const formId = useId();
+  const inputId = useId();
 
   return (
     <Modal
@@ -40,12 +43,12 @@ function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void })
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-          <Button type="submit" form="redeem-form" disabled={pending}>{pending ? "جارٍ التفعيل…" : "تفعيل"}</Button>
+          <Button type="submit" form={formId} disabled={pending}>{pending ? "جارٍ التفعيل…" : "تفعيل"}</Button>
         </>
       }
     >
       <form
-        id="redeem-form"
+        id={formId}
         noValidate
         onSubmit={async (e) => {
           e.preventDefault();
@@ -63,9 +66,9 @@ function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void })
           if (course && first) router.push(academyRoutes.student.lesson(course.id, first.id));
         }}
       >
-        <Field label="كود التسجيل" htmlFor="redeem-code" error={error} hint={live ? "كل كود صالح لمرة واحدة." : "يتكوّن من 3 أجزاء، مثل ABC-1234-WXYZ. كل كود صالح لمرة واحدة."}>
+        <Field label="كود التسجيل" htmlFor={inputId} error={error} hint={live ? "10 خانات من حروف إنجليزية وأرقام. كل كود صالح لمرة واحدة." : "يتكوّن من 3 أجزاء، مثل ABC-1234-WXYZ. كل كود صالح لمرة واحدة."}>
           <Input
-            id="redeem-code"
+            id={inputId}
             dir="ltr"
             autoComplete="off"
             spellCheck={false}
@@ -75,7 +78,7 @@ function RedeemDialog({ open, onClose }: { open: boolean; onClose: () => void })
               setCode(e.target.value.toUpperCase());
               setError(undefined);
             }}
-            placeholder="ABC-1234-WXYZ"
+            placeholder={live ? "K7MPX2RTQ9" : "ABC-1234-WXYZ"}
             className="text-center font-mono text-lg tracking-widest"
             aria-invalid={!!error}
             autoFocus

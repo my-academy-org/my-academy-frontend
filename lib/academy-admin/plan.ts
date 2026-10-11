@@ -26,3 +26,10 @@ export const featureInfo: Record<GatedFeature, { title: string; description: str
 };
 
 export const planLabels: Record<Plan, string> = { BASIC: "Basic", PRO: "Pro" };
+
+/**
+ * Most enrollment codes an academy may hold, across all its courses and
+ * whatever their status (docs/enrollments-api.md §3). The API enforces it and
+ * reports the real figure with every batch it creates.
+ */
+export const codeLimits: Record<Plan, number> = { BASIC: 100, PRO: 1000 };

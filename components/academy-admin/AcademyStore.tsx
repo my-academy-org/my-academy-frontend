@@ -3,7 +3,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useToast } from "@/components/dashboard/Toaster";
 import { deleteCourseAction, deleteLessonAction, reorderLessonsAction, saveCourseAction, saveLessonAction } from "@/lib/academy-admin/course-actions";
-import { hasFeature, type GatedFeature } from "@/lib/academy-admin/plan";
+import { cancelEnrollmentAction, createCodesAction, deleteCodesAction, enrollStudentAction, setCodesStatusAction } from "@/lib/academy-admin/enrollment-actions";
+import { codeLimits, hasFeature, type GatedFeature } from "@/lib/academy-admin/plan";
 import { codePrefix, makeCode } from "@/lib/academy-admin/codes";
 import type {
   AcademyProfile,
@@ -15,6 +16,7 @@ import type {
   DashCourse,
   DashLesson,
   DashStudent,
+  Enrollment,
   EnrollmentCode,
   Exam,
   ExamStatus,
@@ -27,9 +29,10 @@ import type {
 /**
  * Client-side state for one academy's dashboard, seeded by the server layout.
  * Every mutation is a single function here. With a backend (`seed.live`),
- * courses and lessons are saved through the API first
- * (lib/academy-admin/course-actions.ts) and the state follows its answer; the
- * other sections are still local, as is everything in the demo.
+ * courses, lessons, enrollment codes and enrollments are saved through the
+ * API first (lib/academy-admin/course-actions.ts, enrollment-actions.ts) and
+ * the state follows its answer; the other sections are still local, as is
+ * everything in the demo.
  */
 
 export type CourseInput = Pick<DashCourse, "title" | "description" | "content" | "thumbnailUrl" | "status">;
@@ -58,6 +61,7 @@ function useAcademyState(seed: AcademySeed) {
   const [lessons, setLessons] = useState(seed.lessons);
   const [students, setStudents] = useState(seed.students);
   const [codes, setCodes] = useState(seed.codes);
+  const [codeQuota, setCodeQuota] = useState({ used: seed.codes.length, limit: codeLimits[seed.profile.plan] });
   const [exams, setExams] = useState(seed.exams);
   const [submissions] = useState(seed.submissions);
   const [website, setWebsite] = useState(seed.website);
@@ -275,47 +279,87 @@ function useAcademyState(seed: AcademySeed) {
       setStudentStatus(id: string, status: StudentStatus) {
         setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
       },
-      enrollStudent(studentId: string, courseId: string) {
+      /** Gives the student the course without a code. */
+      async enrollStudent(studentId: string, courseId: string): Promise<Saved> {
+        let enrollment: Enrollment = { courseId, enrolledAt: now(), completedLessonIds: [] };
+        if (live) {
+          const res = await enrollStudentAction(studentId, courseId);
+          if (!res.ok) return res;
+          enrollment = res.data;
+        }
         setStudents((prev) =>
-          prev.map((s) =>
-            s.id === studentId && !s.enrollments.some((e) => e.courseId === courseId)
-              ? { ...s, enrollments: [...s.enrollments, { courseId, enrolledAt: now(), completedLessonIds: [] }] }
-              : s,
-          ),
+          prev.map((s) => (s.id === studentId && !s.enrollments.some((e) => e.courseId === courseId) ? { ...s, enrollments: [...s.enrollments, enrollment] } : s)),
         );
         const student = students.find((s) => s.id === studentId);
         log("enrollment", `تم تسجيل ${student?.name} في «${courseById(courseId)?.title}»`);
+        return saved(undefined);
       },
-      unenrollStudent(studentId: string, courseId: string) {
+      /** Takes the course away from the student. With a backend the enrollment is cancelled, not deleted: the student can be enrolled again. */
+      async unenrollStudent(studentId: string, courseId: string): Promise<Saved> {
+        const enrollment = students.find((s) => s.id === studentId)?.enrollments.find((e) => e.courseId === courseId);
+        if (live && enrollment?.enrollmentId) {
+          const res = await cancelEnrollmentAction(enrollment.enrollmentId);
+          if (!res.ok) return res;
+        }
         setStudents((prev) =>
           prev.map((s) => (s.id === studentId ? { ...s, enrollments: s.enrollments.filter((e) => e.courseId !== courseId) } : s)),
         );
+        return saved(undefined);
       },
 
       /* Enrollment codes */
-      generateCodes(courseId: string, count: number, expiresAt?: string) {
-        const existing = new Set(codes.map((c) => c.code));
-        const batchId = newId("b");
-        const created: EnrollmentCode[] = [];
-        const prefix = codePrefix(profile.slug);
-        while (created.length < count) {
-          const code = makeCode(prefix, Math.random);
-          if (existing.has(code)) continue;
-          existing.add(code);
-          created.push({ id: newId("code"), code, courseId, status: "UNUSED", batchId, createdAt: now(), expiresAt });
+      /** With a backend: how many codes the academy holds out of its plan's ceiling. */
+      codeQuota: live ? codeQuota : undefined,
+      /** With a backend a batch is at most 50 codes and has no expiry; past the plan's ceiling it is refused whole (403). */
+      async generateCodes(courseId: string, count: number, expiresAt?: string): Promise<Saved<EnrollmentCode[]>> {
+        let created: EnrollmentCode[] = [];
+        if (live) {
+          const res = await createCodesAction(courseId, count);
+          if (!res.ok) return res;
+          created = res.data.codes;
+          setCodeQuota({ used: res.data.existingCount, limit: res.data.limit });
+        } else {
+          const existing = new Set(codes.map((c) => c.code));
+          const batchId = newId("b");
+          const prefix = codePrefix(profile.slug);
+          while (created.length < count) {
+            const code = makeCode(prefix, Math.random);
+            if (existing.has(code)) continue;
+            existing.add(code);
+            created.push({ id: newId("code"), code, courseId, status: "UNUSED", batchId, createdAt: now(), expiresAt });
+          }
         }
         setCodes((prev) => [...created, ...prev]);
-        log("codes", `تم توليد ${count} كود لدورة «${courseById(courseId)?.title}»`);
-        return created;
+        log("codes", `تم توليد ${created.length} كود لدورة «${courseById(courseId)?.title}»`);
+        return saved(created);
       },
-      setCodesStatus(ids: string[], status: Extract<CodeStatus, "UNUSED" | "DISABLED">) {
+      /** Resolves to how many codes changed; with a backend, some may have been refused. */
+      async setCodesStatus(ids: string[], status: Extract<CodeStatus, "UNUSED" | "DISABLED">): Promise<Saved<number>> {
+        if (live) {
+          const res = await setCodesStatusAction(ids, status === "UNUSED" ? "AVAILABLE" : "DISABLED");
+          if (!res.ok) return res;
+          const updated = new Map(res.data.done.map((c) => [c.id, c]));
+          setCodes((prev) => prev.map((c) => updated.get(c.id) ?? c));
+          return res.data.failure && !updated.size ? res.data.failure : saved(updated.size);
+        }
         const set = new Set(ids);
         // Used codes stay used: they're history, not inventory.
         setCodes((prev) => prev.map((c) => (set.has(c.id) && c.status !== "USED" ? { ...c, status } : c)));
+        return saved(ids.length);
       },
-      deleteCodes(ids: string[]) {
-        const set = new Set(ids);
+      /** Resolves to how many codes were deleted; used ones never are. */
+      async deleteCodes(ids: string[]): Promise<Saved<number>> {
+        let set = new Set(ids);
+        if (live) {
+          const res = await deleteCodesAction(ids);
+          if (!res.ok) return res;
+          set = new Set(res.data.done);
+          // A deleted code gives its place in the plan's ceiling back.
+          setCodeQuota((q) => ({ ...q, used: Math.max(0, q.used - set.size) }));
+          if (res.data.failure && !set.size) return res.data.failure;
+        }
         setCodes((prev) => prev.filter((c) => !(set.has(c.id) && c.status !== "USED")));
+        return saved(set.size);
       },
 
       /* Exams */
@@ -352,7 +396,7 @@ function useAcademyState(seed: AcademySeed) {
         setProfile(next);
       },
     };
-  }, [live, profile, courses, lessons, students, codes, exams, submissions, website, media, activity, notify]);
+  }, [live, profile, courses, lessons, students, codes, codeQuota, exams, submissions, website, media, activity, notify]);
 }
 
 export type AcademyStore = ReturnType<typeof useAcademyState>;

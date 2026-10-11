@@ -54,13 +54,19 @@ export interface LessonSummary {
   enrolled?: boolean;
 }
 
+/** `PROCESSING`: being turned into encrypted HLS, not playable yet; `FAILED`: needs registering again or a new upload. */
+export type MediaStatus = "PROCESSING" | "READY" | "FAILED";
+
 export interface LessonDetail extends Omit<LessonSummary, "enrolled"> {
   content: string | null;
-  /** Path on the API that streams the video (`/lessons/:id/video`), not a storage link; null without a video. */
+  /** Path on the API of the video's HLS playlist (`/lessons/:id/video`), not a storage link; null without a video. */
   videoUrl: string | null;
+  /** The storage `key` the video was registered with. */
   videoId: string | null;
   videoType: string | null;
   mediaId: number | null;
+  /** Null without a video. */
+  media: { status: MediaStatus } | null;
   course: { id: number; title: string };
 }
 
@@ -91,9 +97,10 @@ export interface Media {
   fileName: string | null;
   /** Seconds. */
   duration: number | null;
+  status: MediaStatus;
 }
 
-/** `message` is ready to show (Arabic); `raw` is the API's own text. */
+/** `message` is ready to show (Arabic); `raw` is the API's own text. Logic goes by `status`, never by the text. */
 export type ApiFailure = { ok: false; status: number; message: string; raw: string };
 export type ApiResult<T> = { ok: true; data: T } | ApiFailure;
 
@@ -140,22 +147,20 @@ export async function coursesRequest<T>(token: string, path: string, { method = 
   return { ok: false, status: res.status, message: describe(res.status, raw), raw };
 }
 
+/** The API writes its messages in Arabic, for the user: they are shown as they are. The rest covers an answer without one. */
 function describe(status: number, raw: string) {
   if (status === 401) return sessionExpired.message;
-  if (status === 403 && /not enrolled/i.test(raw)) return "لست مشتركاً في هذه الدورة.";
+  if (/[؀-ۿ]/.test(raw)) return raw;
   if (status === 403) return "لا تملك صلاحية تنفيذ هذا الإجراء.";
   if (status === 404) return "العنصر غير موجود. ربما حُذف.";
-  if (status === 409 && /already used/i.test(raw)) return "هذا الفيديو مستخدم في درس آخر. ارفع فيديو جديداً.";
-  if (status === 409) return "لا يمكن الحذف لوجود بيانات مرتبطة.";
-  if (status === 400 && /not been uploaded/i.test(raw)) return "لم يكتمل رفع الفيديو. ارفعه مرة أخرى.";
-  if (status === 400 && /upload the video first|key is not valid/i.test(raw)) return "الفيديو غير موجود على الخادم. ارفعه مرة أخرى.";
+  if (status === 409) return "تعذّر تنفيذ الإجراء لتعارضه مع بيانات مرتبطة.";
   if (status === 400) return `بيانات غير صالحة: ${raw}`;
   if (status === 503) return "تخزين الفيديو غير مُعدّ على الخادم بعد.";
   return `حدث خطأ غير متوقع (${status}).`;
 }
 
 /** Every page of a list endpoint (up to MAX_LIMIT × MAX_PAGES items). */
-async function listAll<T>(token: string, path: string, query: Query = {}): Promise<ApiResult<T[]>> {
+export async function listAll<T>(token: string, path: string, query: Query = {}): Promise<ApiResult<T[]>> {
   const all: T[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await coursesRequest<Paginated<T>>(token, path, { query: { ...query, page, limit: MAX_LIMIT } });
@@ -172,7 +177,7 @@ export const fetchCourses = (token: string) => listAll<Course>(token, "/courses"
 /** GET /lessons — ordered by course, `order`, then id; without content or video. */
 export const fetchLessons = (token: string) => listAll<LessonSummary>(token, "/lessons");
 
-/** GET /lessons/:id — with content and the `videoUrl` path. */
+/** GET /lessons/:id — with content, the `videoUrl` path and the video's `media.status`. */
 export const fetchLesson = (token: string, id: number) => coursesRequest<LessonDetail>(token, `/lessons/${id}`);
 
 /** A numeric API id from the string ids the screens use; null when it isn't one. */

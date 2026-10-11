@@ -55,6 +55,8 @@ export interface DashLesson {
 export type StudentStatus = "ACTIVE" | "SUSPENDED";
 
 export interface Enrollment {
+  /** With a backend: the enrollment's own id, which cancelling it goes by. */
+  enrollmentId?: string;
   courseId: string;
   enrolledAt: string;
   /** Code used to unlock the course, if any. */
@@ -85,6 +87,8 @@ export interface EnrollmentCode {
   createdAt: string;
   expiresAt?: string;
   usedByStudentId?: string;
+  /** With a backend: who used the code, as the API names them (the student may no longer be enrolled). */
+  usedByName?: string;
   usedAt?: string;
 }
 
@@ -171,9 +175,12 @@ export interface DashActivity {
 
 /** Everything the dashboard needs at load time; serialisable so the server layout can pass it to the client store. */
 export interface AcademySeed {
-  /** Courses and lessons come from the API and every change to them is saved there (docs/courses-lessons-api.md). */
+  /**
+   * Courses, lessons, enrollment codes and enrollments come from the API and every change to them is
+   * saved there (docs/courses-lessons-api.md, docs/enrollments-api.md).
+   */
   live?: boolean;
-  /** Why the courses couldn't be loaded from the API. */
+  /** Why they couldn't be loaded from the API. */
   loadError?: string;
   profile: AcademyProfile;
   courses: DashCourse[];

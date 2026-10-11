@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { cn } from "@/lib/cn";
 import { academyRoutes } from "@/lib/academy/nav";
 import { formatDate, formatDateTime } from "@/lib/format";
+import type { LearnCourse } from "@/lib/student/types";
 import { CourseCard } from "../CourseCard";
 import { CourseCover, ExamPill, Meter, ProgressRing } from "../parts";
-import { RedeemCodeButton } from "../RedeemCode";
+import { StartJourney } from "../StartJourney";
 import { useStudent } from "../StudentStore";
 
 const r = academyRoutes.student;
@@ -90,17 +93,10 @@ export function HomeView() {
           </div>
         </section>
       ) : (
-        <section className="rounded-3xl border border-dashed border-line-strong bg-white px-6 py-14 text-center">
-          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-700">
-            <Icon name="ticket" className="size-6" />
-          </span>
-          <h2 className="mt-5 text-xl font-extrabold text-ink-950">ابدأ رحلتك التعليمية</h2>
-          <p className="mx-auto mt-2 max-w-md leading-7 text-ink-500">أدخل كود التسجيل الذي حصلت عليه من معلّمك لتفعيل دورتك والبدء فوراً.</p>
-          <div className="mt-6">
-            <RedeemCodeButton variant="primary" />
-          </div>
-        </section>
+        <StartJourney browseHref={`${r.courses}#available-courses`} />
       )}
+
+      {current && resume && current.lessons.length > 1 && <LessonPath course={current} currentId={resume.id} />}
 
       {/* At a glance */}
       {courses.length > 0 && (
@@ -231,6 +227,63 @@ export function HomeView() {
         </div>
       )}
     </div>
+  );
+}
+
+const stopsLeft = (n: number) => (n === 1 ? "محطة واحدة تفصلك" : n === 2 ? "محطتان تفصلانك" : n <= 10 ? `${n} محطات تفصلك` : `${n} محطة تفصلك`);
+
+/** The current course drawn as a road: every lesson a stop — passed, here, or ahead — and each one a way in. */
+function LessonPath({ course, currentId }: { course: LearnCourse; currentId: string }) {
+  const { progressOf } = useStudent();
+  const trackRef = useRef<HTMLOListElement>(null);
+  const hereRef = useRef<HTMLLIElement>(null);
+  const completed = progressOf(course.id).completedLessonIds;
+  const left = course.lessons.filter((l) => !completed.includes(l.id)).length;
+
+  // A long course scrolls sideways: start with the student's stop in the middle. Measured as a distance, so it holds in both directions.
+  useEffect(() => {
+    const track = trackRef.current;
+    const here = hereRef.current;
+    if (track && here) track.scrollLeft += here.getBoundingClientRect().left - track.getBoundingClientRect().left - (track.clientWidth - here.clientWidth) / 2;
+  }, [currentId]);
+
+  return (
+    <section aria-labelledby="lesson-path" className="rounded-3xl border border-line bg-white p-6 shadow-card sm:p-8">
+      <h2 id="lesson-path" className="text-xl font-extrabold text-ink-950">
+        خريطة رحلتك
+      </h2>
+      <p className="mt-1 text-sm text-ink-500">{left === 0 ? `وصلت إلى نهاية «${course.title}».` : `${stopsLeft(left)} عن نهاية «${course.title}».`}</p>
+
+      <ol ref={trackRef} className="mt-6 flex overflow-x-auto pt-2 pb-2">
+        {course.lessons.map((l, i) => {
+          const passed = completed.includes(l.id);
+          const here = l.id === currentId && !passed;
+          return (
+            <li key={l.id} ref={here ? hereRef : undefined} className="relative flex w-28 shrink-0 flex-col items-center text-center">
+              {/* The road to the next stop */}
+              {i < course.lessons.length - 1 && <span aria-hidden="true" className={cn("absolute start-1/2 top-5 h-0.5 w-full", passed ? "bg-brand-500" : "bg-line-strong")} />}
+              <Link
+                href={r.lesson(course.id, l.id)}
+                aria-label={`الدرس ${i + 1}: ${l.title}`}
+                aria-current={here ? "step" : undefined}
+                className="group relative z-10 rounded-full focus-visible:ring-4 focus-visible:ring-brand-500/40 focus-visible:outline-none"
+              >
+                <span
+                  className={cn(
+                    "grid size-10 place-items-center rounded-full text-sm font-bold tabular-nums transition-transform group-hover:scale-110",
+                    passed ? "bg-brand-600 text-white" : here ? "bg-white text-brand-700 ring-4 ring-brand-500" : "bg-canvas text-ink-500 ring-1 ring-line",
+                  )}
+                >
+                  {passed ? <Icon name="check" className="size-4" strokeWidth={3} /> : here ? <Icon name="play" className="size-4" /> : i + 1}
+                </span>
+              </Link>
+              <span className={cn("mt-2 line-clamp-2 px-1.5 text-xs leading-5", here ? "font-bold text-brand-800" : "text-ink-600")}>{l.title}</span>
+              {here && <span className="mt-1 rounded-full bg-brand-50 px-2 py-0.5 text-[0.6875rem] font-bold text-brand-700">أنت هنا</span>}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

@@ -9,7 +9,7 @@ import { VideoPlayer as Player } from "@/components/ui/VideoPlayer";
 import { cn } from "@/lib/cn";
 import { paragraphs } from "@/lib/academy/format";
 import { academyRoutes } from "@/lib/academy/nav";
-import type { ApiResult } from "@/lib/academy/courses";
+import type { ApiResult, MediaStatus } from "@/lib/academy/courses";
 import { formatDuration, formatFileSize } from "@/lib/format";
 import { openLessonAction, type OpenLesson } from "@/lib/student/actions";
 import type { LearnCourse, LearnLesson } from "@/lib/student/types";
@@ -109,7 +109,14 @@ export function LessonView({ courseId, lessonId }: { courseId: string; lessonId:
 
       <div className="mx-auto grid w-full max-w-[90rem] flex-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <main className="min-w-0 px-0 pb-16 sm:px-6 sm:pt-6 lg:px-8">
-          <VideoPlayer key={lesson.id} lesson={lesson} loading={remote.loading} onRetry={live ? remote.reload : undefined} />
+          <VideoPlayer
+            key={lesson.id}
+            lesson={lesson}
+            hls={live}
+            status={remote.data?.videoStatus}
+            loading={remote.loading}
+            onRetry={live ? remote.reload : undefined}
+          />
 
           <div className="mx-auto max-w-3xl px-4 pt-6 sm:px-0">
             <p className="text-sm font-semibold text-brand-700">
@@ -279,10 +286,11 @@ function Outline({ course, current, completed, onNavigate }: { course: LearnCour
 }
 
 /**
- * The lesson's text and video address from the API (GET /lessons/:id), asked
- * for on every open and again on `reload`. The video itself is streamed by the
- * API with the session cookie, so it stops with a 401 once the one-hour
- * session ends; `reload` then reports the expired session.
+ * The lesson's text, video address and video status from the API
+ * (GET /lessons/:id), asked for on every open and again on `reload`. The
+ * player needs the session only to start (playlist and key); once it has,
+ * the video keeps playing after the one-hour session ends. Starting again
+ * then fails, and `reload` reports the expired session.
  */
 function useOpenLesson(lessonId: string | null) {
   const [attempt, setAttempt] = useState(0);
@@ -311,19 +319,47 @@ function useOpenLesson(lessonId: string | null) {
   };
 }
 
-function VideoPlayer({ lesson, loading, onRetry }: { lesson: LearnLesson; loading?: boolean; onRetry?: () => void }) {
+function VideoPlayer({
+  lesson,
+  hls,
+  status,
+  loading,
+  onRetry,
+}: {
+  lesson: LearnLesson;
+  /** The video is the API's encrypted HLS, not a plain file. */
+  hls?: boolean;
+  /** How far the API got preparing the video; only `READY` (or none, in the demo) plays. */
+  status?: MediaStatus | null;
+  loading?: boolean;
+  onRetry?: () => void;
+}) {
   const [state, setState] = useState<"idle" | "playing" | "error">("idle");
+  const playable = !!lesson.videoUrl && (!status || status === "READY");
 
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-ink-950 sm:rounded-2xl sm:shadow-lift sm:ring-1 sm:ring-ink-950/10">
-      {lesson.videoUrl && state === "playing" ? (
-        <Player src={lesson.videoUrl} title={lesson.title} autoPlay className="absolute inset-0 aspect-auto h-full" onError={() => setState("error")} />
+      {lesson.videoUrl && playable && state === "playing" ? (
+        <Player src={lesson.videoUrl} hls={hls} title={lesson.title} autoPlay className="absolute inset-0 aspect-auto h-full" onError={() => setState("error")} />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,var(--color-brand-900),var(--color-ink-950))]">
           {loading ? (
             <p className="px-6 text-center text-sm text-white/70">جارٍ تحميل الدرس…</p>
           ) : !lesson.videoUrl ? (
             <p className="px-6 text-center text-sm text-white/70">هذا الدرس بدون فيديو — المحتوى المكتوب بالأسفل.</p>
+          ) : status === "PROCESSING" ? (
+            <div className="px-6 text-center text-white/80">
+              <Icon name="clock" className="mx-auto size-7" />
+              <p className="mt-3 text-sm">الفيديو قيد التجهيز. عُد إليه بعد قليل.</p>
+              <button type="button" onClick={onRetry} className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">
+                تحديث
+              </button>
+            </div>
+          ) : status === "FAILED" ? (
+            <div className="px-6 text-center text-white/80">
+              <Icon name="alert" className="mx-auto size-7" />
+              <p className="mt-3 text-sm">تعذّر تجهيز فيديو هذا الدرس. أخبر معلّمك ليرفعه من جديد.</p>
+            </div>
           ) : state === "error" ? (
             <div className="px-6 text-center text-white/80">
               <Icon name="alert" className="mx-auto size-7" />

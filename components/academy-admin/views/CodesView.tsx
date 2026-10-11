@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useConfirm } from "@/components/dashboard/ConfirmDialog";
 import { RowMenu, type MenuItem } from "@/components/dashboard/RowMenu";
-import { EmptyState, FilterTabs, PageHeader, SearchField, Table, Td, Th, Tr } from "@/components/dashboard/ui";
+import { EmptyState, FilterTabs, Notice, PageHeader, SearchField, Table, Td, Th, Tr } from "@/components/dashboard/ui";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
@@ -12,17 +12,20 @@ import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 import { dash, formatCodes } from "@/lib/academy-admin/meta";
 import type { CodeStatus, EnrollmentCode } from "@/lib/academy-admin/types";
+import { MAX_CODES_PER_REQUEST } from "@/lib/academy/enrollments";
 import { formatDate, fromZonedInput } from "@/lib/format";
 import { useAcademy } from "../AcademyStore";
 import { CopyButton, copyText } from "../CopyButton";
 import { CodeStatusBadge } from "../parts";
+import { useUpgrade } from "../Upgrade";
 
 const PAGE = 50;
+/** The demo's batches; with a backend one request creates at most MAX_CODES_PER_REQUEST codes. */
 const PRESETS = [10, 25, 50, 100];
 const MAX_BATCH = 500;
 
 export function CodesView() {
-  const { codes, courses, courseById, studentById, setCodesStatus, deleteCodes, notify } = useAcademy();
+  const { codes, courses, courseById, studentById, setCodesStatus, deleteCodes, notify, live } = useAcademy();
   const { confirm, dialog } = useConfirm();
   const [status, setStatus] = useState<"ALL" | CodeStatus>("ALL");
   const [courseId, setCourseId] = useState("ALL");
@@ -70,9 +73,11 @@ export function CodesView() {
       points: list.length !== target.length ? ["الأكواد المستخدمة أو المعطّلة مسبقاً لن تتأثر."] : undefined,
       confirmLabel: "تعطيل",
       tone: "danger",
-      onConfirm: () => {
-        setCodesStatus(target.map((c) => c.id), "DISABLED");
-        notify(`تم تعطيل ${formatCodes(target.length)}`);
+      onConfirm: async () => {
+        const res = await setCodesStatus(target.map((c) => c.id), "DISABLED");
+        if (!res.ok) return notify(res.message, "error");
+        if (res.data < target.length) notify(`تم تعطيل ${formatCodes(res.data)} من ${target.length}. تعذّر تعطيل الباقي.`, "error");
+        else notify(`تم تعطيل ${formatCodes(res.data)}`);
         resetSelection();
       },
     });
@@ -87,9 +92,11 @@ export function CodesView() {
       points: list.length !== target.length ? ["الأكواد المستخدمة تبقى كسجلّ لتسجيل الطلاب ولا تُحذف."] : undefined,
       confirmLabel: "حذف",
       tone: "danger",
-      onConfirm: () => {
-        deleteCodes(target.map((c) => c.id));
-        notify(`تم حذف ${formatCodes(target.length)}`);
+      onConfirm: async () => {
+        const res = await deleteCodes(target.map((c) => c.id));
+        if (!res.ok) return notify(res.message, "error");
+        if (res.data < target.length) notify(`تم حذف ${formatCodes(res.data)} من ${target.length}. تعذّر حذف الباقي.`, "error");
+        else notify(`تم حذف ${formatCodes(res.data)}`);
         resetSelection();
       },
     });
@@ -102,12 +109,13 @@ export function CodesView() {
       items.push({
         label: "إعادة التفعيل",
         icon: "power",
-        onSelect: () => {
-          setCodesStatus([c.id], "UNUSED");
-          notify("أصبح الكود متاحاً");
+        onSelect: async () => {
+          const res = await setCodesStatus([c.id], "UNUSED");
+          if (res.ok) notify("أصبح الكود متاحاً");
+          else notify(res.message, "error");
         },
       });
-    if (c.status === "USED" && c.usedByStudentId) items.push({ label: "عرض الطالب", icon: "user", href: dash.student(c.usedByStudentId) });
+    if (c.status === "USED" && c.usedByStudentId && studentById(c.usedByStudentId)) items.push({ label: "عرض الطالب", icon: "user", href: dash.student(c.usedByStudentId) });
     if (c.status !== "USED") items.push({ label: "حذف", icon: "trash", tone: "danger", separated: true, onSelect: () => remove([c]) });
     return items;
   };
@@ -201,7 +209,8 @@ export function CodesView() {
                   <Th>الحالة</Th>
                   <Th>استُخدم بواسطة</Th>
                   <Th>تاريخ الإنشاء</Th>
-                  <Th>الصلاحية</Th>
+                  {/* The API's codes don't expire. */}
+                  {!live && <Th>الصلاحية</Th>}
                   <Th className="w-14"><span className="sr-only">إجراءات</span></Th>
                 </tr>
               </thead>
@@ -230,12 +239,18 @@ export function CodesView() {
                             <span className="block text-sm font-semibold whitespace-nowrap text-ink-800">{student.name}</span>
                             {c.usedAt && <span className="block text-xs text-ink-500">{formatDate(c.usedAt)}</span>}
                           </Link>
+                        ) : c.usedByName ? (
+                          // Used by a student who is no longer enrolled in anything.
+                          <span className="block leading-5">
+                            <span className="block text-sm font-semibold whitespace-nowrap text-ink-800">{c.usedByName}</span>
+                            {c.usedAt && <span className="block text-xs text-ink-500">{formatDate(c.usedAt)}</span>}
+                          </span>
                         ) : (
                           <span className="text-ink-400">—</span>
                         )}
                       </Td>
                       <Td className="whitespace-nowrap text-ink-600">{formatDate(c.createdAt)}</Td>
-                      <Td className="whitespace-nowrap text-ink-600">{c.expiresAt ? `حتى ${formatDate(c.expiresAt)}` : <span className="text-ink-400">بلا انتهاء</span>}</Td>
+                      {!live && <Td className="whitespace-nowrap text-ink-600">{c.expiresAt ? `حتى ${formatDate(c.expiresAt)}` : <span className="text-ink-400">بلا انتهاء</span>}</Td>}
                       <Td>{items.length > 0 && <RowMenu label={`إجراءات ${c.code}`} items={items} />}</Td>
                     </Tr>
                   );
@@ -268,20 +283,33 @@ export function CodesView() {
 /* ------------------------------------------------------------------ */
 
 function Generator({ onGenerated }: { onGenerated: (codes: EnrollmentCode[]) => void }) {
-  const { courses, generateCodes } = useAcademy();
+  const { courses, generateCodes, codeQuota, live, profile } = useAcademy();
+  const upgrade = useUpgrade();
   const published = courses.filter((c) => c.status === "PUBLISHED");
   const [courseId, setCourseId] = useState(published[0]?.id ?? courses[0]?.id ?? "");
   const [quantity, setQuantity] = useState(25);
   const [expires, setExpires] = useState("");
   const [error, setError] = useState<string>();
+  // The plan's ceiling was reached (403): the API's own message, shown with a way to raise it.
+  const [limitReached, setLimitReached] = useState<string>();
+  const [pending, setPending] = useState(false);
   const course = courses.find((c) => c.id === courseId);
+  const maxBatch = live ? MAX_CODES_PER_REQUEST : MAX_BATCH;
+  const presets = PRESETS.filter((n) => n <= maxBatch);
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (!(quantity >= 1 && quantity <= MAX_BATCH)) return setError(`من 1 إلى ${MAX_BATCH} كود في المرة الواحدة`);
-        onGenerated(generateCodes(courseId, quantity, expires ? fromZonedInput(`${expires}T23:59`) : undefined));
+        if (pending) return;
+        if (!(Number.isInteger(quantity) && quantity >= 1 && quantity <= maxBatch)) return setError(`من 1 إلى ${maxBatch} كود في المرة الواحدة`);
+        setPending(true);
+        setLimitReached(undefined);
+        const res = await generateCodes(courseId, quantity, expires ? fromZonedInput(`${expires}T23:59`) : undefined);
+        setPending(false);
+        if (res.ok) return onGenerated(res.data);
+        if (res.status === 403) setLimitReached(res.message);
+        else setError(res.message);
       }}
       className="rounded-2xl border border-line bg-white p-6 shadow-card"
     >
@@ -293,9 +321,25 @@ function Generator({ onGenerated }: { onGenerated: (codes: EnrollmentCode[]) => 
           <h2 className="font-bold text-ink-950">توليد أكواد جديدة</h2>
           <p className="text-sm text-ink-500">أكواد فريدة غير قابلة للتكرار، جاهزة للنسخ فور توليدها.</p>
         </div>
+        {codeQuota && (
+          <p className="ms-auto text-sm whitespace-nowrap text-ink-500">
+            استخدمت <b className="text-ink-900 tabular-nums">{codeQuota.used}</b> من <b className="text-ink-900 tabular-nums">{codeQuota.limit}</b> كود
+          </p>
+        )}
       </div>
 
-      <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto] md:items-start">
+      {limitReached && (
+        <Notice tone="warning" className="mt-5">
+          {limitReached}{" "}
+          {profile.plan === "BASIC" && (
+            <button type="button" onClick={() => upgrade()} className="font-semibold underline">
+              اطلب الترقية إلى Pro
+            </button>
+          )}
+        </Notice>
+      )}
+
+      <div className={cn("mt-5 grid gap-5 md:items-start", live ? "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)_auto]" : "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto]")}>
         <Field label="الدورة" htmlFor="g-course" hint={course?.status === "DRAFT" ? "الدورة مسودة: يمكن توليد الأكواد، لكن التفعيل يعمل بعد النشر." : undefined}>
           <Select id="g-course" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
             {courses.map((c) => (
@@ -313,7 +357,7 @@ function Generator({ onGenerated }: { onGenerated: (codes: EnrollmentCode[]) => 
                 id="g-qty"
                 type="number"
                 min={1}
-                max={MAX_BATCH}
+                max={maxBatch}
                 inputMode="numeric"
                 value={quantity || ""}
                 onChange={(e) => {
@@ -325,7 +369,7 @@ function Generator({ onGenerated }: { onGenerated: (codes: EnrollmentCode[]) => 
               />
             </div>
             <div className="flex gap-1" role="group" aria-label="أعداد شائعة">
-              {PRESETS.map((n) => (
+              {presets.map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -344,12 +388,14 @@ function Generator({ onGenerated }: { onGenerated: (codes: EnrollmentCode[]) => 
             </div>
           </div>
         </Field>
-        <Field label="تنتهي في" htmlFor="g-exp" optional>
-          <Input id="g-exp" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} dir="ltr" className="text-start" />
-        </Field>
+        {!live && (
+          <Field label="تنتهي في" htmlFor="g-exp" optional>
+            <Input id="g-exp" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} dir="ltr" className="text-start" />
+          </Field>
+        )}
         <div className="md:pt-7">
-          <Button type="submit" className="w-full md:w-auto">
-            توليد {quantity > 0 && quantity <= MAX_BATCH ? formatCodes(quantity) : "الأكواد"}
+          <Button type="submit" className="w-full md:w-auto" disabled={pending}>
+            {pending ? "جارٍ التوليد…" : `توليد ${quantity > 0 && quantity <= maxBatch ? formatCodes(quantity) : "الأكواد"}`}
           </Button>
         </div>
       </div>

@@ -1,13 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { FilterTabs, Notice } from "@/components/dashboard/ui";
 import { Icon } from "@/components/ui/Icon";
+import { cn } from "@/lib/cn";
 import { formatLessons } from "@/lib/academy/format";
+import { academyRoutes } from "@/lib/academy/nav";
 import type { LearnCourse } from "@/lib/student/types";
 import { CourseCard } from "../CourseCard";
-import { CourseCover } from "../parts";
+import { CourseCover, ProgressRing } from "../parts";
 import { RedeemCodeButton } from "../RedeemCode";
+import { StartJourney } from "../StartJourney";
 import { useStudent } from "../StudentStore";
 
 type Filter = "ALL" | "ACTIVE" | "NEW" | "DONE";
@@ -31,7 +35,7 @@ export function CoursesView() {
           <h1 className="text-[1.75rem] font-extrabold tracking-tight text-ink-950">دوراتي</h1>
           <p className="mt-1.5 text-ink-500">الدورات التي فعّلتها في الأكاديمية.</p>
         </div>
-        {courses.length > 0 && <RedeemCodeButton />}
+        <LearningPulse />
       </header>
 
       {loadError && (
@@ -41,16 +45,7 @@ export function CoursesView() {
       )}
 
       {courses.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-line-strong bg-white px-6 py-16 text-center">
-          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-700">
-            <Icon name="book" className="size-6" />
-          </span>
-          <p className="mt-5 text-lg font-bold text-ink-950">لم تفعّل أي دورة بعد</p>
-          <p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-ink-500">احصل على كود التسجيل من معلّمك، ثم فعّل به دورتك لتظهر هنا.</p>
-          <div className="mt-6">
-            <RedeemCodeButton variant="primary" />
-          </div>
-        </div>
+        <StartJourney browseHref="#available-courses" />
       ) : (
         <>
           <div className="mb-6">
@@ -80,7 +75,7 @@ export function CoursesView() {
 
       {available.length > 0 && (
         <section aria-labelledby="available-courses" className="mt-12">
-          <h2 id="available-courses" className="text-xl font-extrabold text-ink-950">
+          <h2 id="available-courses" className="scroll-mt-24 text-xl font-extrabold text-ink-950">
             دورات متاحة للتفعيل
           </h2>
           <p className="mt-1 text-sm text-ink-500">دورات الأكاديمية التي لم تفعّلها بعد. تُفتح دروسها بكود التسجيل.</p>
@@ -92,6 +87,49 @@ export function CoursesView() {
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * Where the student stands across all their courses, with one tap back into
+ * the lesson to watch next: the most recently studied course that isn't finished.
+ */
+function LearningPulse() {
+  const { courses, recentCourses, resumeLesson, progressOf } = useStudent();
+  const completedIn = (c: LearnCourse) => progressOf(c.id).completedLessonIds.filter((id) => c.lessons.some((l) => l.id === id)).length;
+  const total = courses.reduce((sum, c) => sum + c.lessons.length, 0);
+  if (!total) return null;
+  const done = courses.reduce((sum, c) => sum + completedIn(c), 0);
+  const percent = Math.round((done / total) * 100);
+  const course = recentCourses().find((c) => completedIn(c) < c.lessons.length);
+  const lesson = course && resumeLesson(course.id);
+  const frame = "flex items-center gap-3 rounded-2xl border border-line bg-white py-2 ps-2 pe-3 shadow-card sm:max-w-xs";
+
+  const body = (
+    <>
+      <ProgressRing value={percent} size={52} stroke={5}>
+        <span className="text-xs font-extrabold text-ink-950 tabular-nums">{percent}%</span>
+      </ProgressRing>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs text-ink-500">
+          أكملت {done} من {formatLessons(total)}
+        </span>
+        <span className="block truncate text-sm font-bold text-ink-950">{lesson ? <>تابع: {lesson.title}</> : "أنهيت كل دروسك، أحسنت!"}</span>
+      </span>
+      {lesson && (
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white transition-transform group-hover:scale-105">
+          <Icon name="play" className="size-4" />
+        </span>
+      )}
+    </>
+  );
+
+  return course && lesson ? (
+    <Link href={academyRoutes.student.lesson(course.id, lesson.id)} className={cn(frame, "group transition-[box-shadow,border-color] hover:border-line-strong hover:shadow-lift")}>
+      {body}
+    </Link>
+  ) : (
+    <div className={frame}>{body}</div>
   );
 }
 

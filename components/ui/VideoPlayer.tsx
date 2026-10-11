@@ -1,5 +1,6 @@
 "use client";
 
+import type Hls from "hls.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
@@ -51,20 +52,28 @@ const control = "grid size-9 shrink-0 place-items-center rounded-lg text-white/9
  * The browser's own controls and context menu are left out, so there is no
  * "save video" entry and no download button. That keeps the file out of easy
  * reach, not out of reach: whoever may watch a video can still capture it.
+ *
+ * With `hls`, `src` is an HLS playlist rather than a file — how the API serves
+ * lesson videos, encrypted (docs/courses-lessons-api.md, GET /lessons/:id/video).
+ * hls.js plays it, asking the playlist's own origin for the playlist and the
+ * decryption key with the session cookie and storage for the segments without.
  */
 export function VideoPlayer({
   src,
+  hls,
   title,
   autoPlay,
   className,
   onError,
 }: {
   src: string;
+  hls?: boolean;
   /** Read by screen readers as the player's name. */
   title?: string;
   autoPlay?: boolean;
   className?: string;
-  onError?: () => void;
+  /** The video can't be played; `status` is the server's answer when it refused the playlist or the key. */
+  onError?: (status?: number) => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -79,6 +88,52 @@ export function VideoPlayer({
   const [rate, setRate] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [active, setActive] = useState(true);
+  // Read when playback fails, so a new callback doesn't restart the video.
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  });
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!hls || !video) return;
+    let cancelled = false;
+    let player: Hls | undefined;
+    import("hls.js")
+      .then(({ default: Hls }) => {
+        if (cancelled) return;
+        if (!Hls.isSupported()) {
+          // iPhone Safari plays HLS on its own.
+          video.src = src;
+          return;
+        }
+        const origin = new URL(src, location.href).origin;
+        player = new Hls({
+          xhrSetup: (xhr, url) => {
+            xhr.withCredentials = new URL(url, location.href).origin === origin;
+          },
+        });
+        let recovered = false;
+        player.on(Hls.Events.ERROR, (_, data) => {
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !recovered) {
+            recovered = true;
+            player?.recoverMediaError();
+            return;
+          }
+          player?.destroy();
+          onErrorRef.current?.(data.response?.code);
+        });
+        player.loadSource(src);
+        player.attachMedia(video);
+      })
+      .catch(() => onErrorRef.current?.());
+    return () => {
+      cancelled = true;
+      player?.destroy();
+    };
+  }, [hls, src]);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current);
@@ -187,7 +242,7 @@ export function VideoPlayer({
     >
       <video
         ref={videoRef}
-        src={src}
+        src={hls ? undefined : src}
         autoPlay={autoPlay}
         playsInline
         preload="metadata"
@@ -217,7 +272,7 @@ export function VideoPlayer({
           setMuted(e.currentTarget.muted);
         }}
         onRateChange={(e) => setRate(e.currentTarget.playbackRate)}
-        onError={onError}
+        onError={() => onError?.()}
       >
         <track kind="captions" />
       </video>

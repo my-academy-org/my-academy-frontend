@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/Icon";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
-import { loadLessonAction } from "@/lib/academy-admin/course-actions";
+import { loadLessonAction, retryLessonVideoAction, type LessonForEdit } from "@/lib/academy-admin/course-actions";
 import { dash, lessonStatus } from "@/lib/academy-admin/meta";
 import type { DashLesson, LessonStatus } from "@/lib/academy-admin/types";
 import { uploadLessonVideo, type UploadedVideo } from "@/lib/academy-admin/video-upload";
@@ -31,6 +31,9 @@ type Upload =
  * a file is picked it is uploaded to storage and registered, and only then —
  * once there is a `mediaId` — can the lesson be saved. On an edit the lesson
  * already has its video; a `mediaId` is sent only when it was replaced.
+ *
+ * A registered video is processed in the background before it can be watched:
+ * the lesson is saved without waiting, and its page shows how far that got.
  */
 export function LessonForm({ courseId, lesson }: { courseId: string; lesson?: DashLesson }) {
   const router = useRouter();
@@ -45,7 +48,8 @@ export function LessonForm({ courseId, lesson }: { courseId: string; lesson?: Da
     position: lesson?.order ?? siblings.length + 1,
   });
   // The list has no text or video: an existing lesson's are loaded with the page.
-  const [current, setCurrent] = useState<{ loading: boolean; videoUrl?: string | null; error?: string }>({ loading: !!lesson });
+  const [current, setCurrent] = useState<{ loading: boolean; error?: string } & Partial<Pick<LessonForEdit, "videoUrl" | "videoStatus">>>({ loading: !!lesson });
+  const [retrying, setRetrying] = useState(false);
   const [upload, setUpload] = useState<Upload>({ phase: "idle" });
   const [errors, setErrors] = useState<{ title?: string; form?: string }>({});
   const [saving, setSaving] = useState(false);
@@ -60,13 +64,37 @@ export function LessonForm({ courseId, lesson }: { courseId: string; lesson?: Da
     loadLessonAction(lessonId).then((res) => {
       if (cancelled) return;
       if (!res.ok) return setCurrent({ loading: false, error: res.message });
-      setCurrent({ loading: false, videoUrl: res.data.videoUrl });
+      setCurrent({ loading: false, videoUrl: res.data.videoUrl, videoStatus: res.data.videoStatus });
       setValues((v) => ({ ...v, content: res.data.content }));
     });
     return () => {
       cancelled = true;
     };
   }, [lessonId]);
+
+  // A video still being processed is asked about again until it is ready or has failed.
+  const processing = current.videoStatus === "PROCESSING";
+  useEffect(() => {
+    if (!lessonId || !processing) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      const res = await loadLessonAction(lessonId);
+      if (!cancelled && res.ok) setCurrent((c) => ({ ...c, videoUrl: res.data.videoUrl, videoStatus: res.data.videoStatus }));
+    }, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [lessonId, processing]);
+
+  const retryVideo = async () => {
+    if (!lessonId || retrying) return;
+    setRetrying(true);
+    const res = await retryLessonVideoAction(lessonId);
+    setRetrying(false);
+    if (res.ok) setCurrent((c) => ({ ...c, videoStatus: res.data }));
+    else notify(res.message, "error");
+  };
 
   // An upload still running when the page is left is dropped.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -136,9 +164,24 @@ export function LessonForm({ courseId, lesson }: { courseId: string; lesson?: Da
           title="فيديو الدرس"
           description={lesson ? "ارفع ملفاً جديداً لاستبدال الفيديو الحالي؛ يُحذف القديم عند حفظ الدرس." : "ابدأ من هنا: يُحفظ الدرس بعد اكتمال رفع الفيديو."}
         >
-          {lesson && (upload.phase === "idle" || upload.phase === "error") && current.videoUrl && (
-            <VideoPlayer src={current.videoUrl} title={lesson.title} className="mb-4 rounded-xl" />
-          )}
+          {lesson &&
+            (upload.phase === "idle" || upload.phase === "error") &&
+            current.videoUrl &&
+            (processing ? (
+              <Notice tone="info" className="mb-4">
+                الفيديو قيد التجهيز للمشاهدة. قد يستغرق ذلك بضع دقائق حسب طوله، ويظهر هنا تلقائياً عندما يجهز.
+              </Notice>
+            ) : current.videoStatus === "FAILED" ? (
+              <Notice tone="warning" className="mb-4">
+                تعذّر تجهيز الفيديو، ولن يستطيع الطلاب مشاهدته.{" "}
+                <button type="button" onClick={retryVideo} disabled={retrying} className="font-semibold underline disabled:opacity-60">
+                  {retrying ? "جارٍ إعادة المحاولة…" : "أعد المحاولة"}
+                </button>{" "}
+                أو ارفع الفيديو من جديد.
+              </Notice>
+            ) : (
+              <VideoPlayer src={current.videoUrl} hls title={lesson.title} className="mb-4 rounded-xl" />
+            ))}
           <div className="rounded-xl border border-dashed border-line-strong px-4 py-4">
             {transferring ? (
               <>
@@ -168,7 +211,7 @@ export function LessonForm({ courseId, lesson }: { courseId: string; lesson?: Da
                     <span className="inline-flex max-w-full items-center gap-1.5 font-semibold text-brand-700">
                       <Icon name="check" className="size-4 shrink-0" strokeWidth={2.5} />
                       <span className="truncate">
-                        تم رفع الفيديو وحفظه: <bdi>{upload.fileName}</bdi>
+                        تم رفع الفيديو وحفظه، ويُجهَّز للمشاهدة في الخلفية: <bdi>{upload.fileName}</bdi>
                       </span>
                     </span>
                   ) : lesson ? (

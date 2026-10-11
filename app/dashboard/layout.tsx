@@ -9,6 +9,7 @@ import { ACADEMY_API_URL } from "@/lib/academy/config";
 import { getAcademySite } from "@/lib/academy/data";
 import { TEMPLATE_BY_TYPE } from "@/lib/academy/landing";
 import { fetchDashboardContent } from "@/lib/academy-admin/courses";
+import { fetchDashboardEnrollments } from "@/lib/academy-admin/enrollments";
 import { buildAcademySeed, emptyAcademySeed } from "@/lib/academy-admin/seed";
 import type { AcademySeed } from "@/lib/academy-admin/types";
 import { backendTenant } from "@/lib/auth/backend";
@@ -25,15 +26,17 @@ export const metadata: Metadata = {
  * With a backend, an ACADEMY_ADMIN account only exists linked to an academy
  * (it is created through POST /auth/academy-admin/verify-otp for one tenant —
  * docs/auth-api.md §4), so the owner always goes straight in. Courses and
- * lessons come from the API (docs/courses-lessons-api.md); the rest of the
- * dashboard's data isn't served yet, so it starts empty rather than with
- * sample content.
+ * lessons come from the API (docs/courses-lessons-api.md), as do enrollment
+ * codes and the students enrolled with them (docs/enrollments-api.md); the
+ * rest of the dashboard's data isn't served yet, so it starts empty rather
+ * than with sample content.
  */
 async function backendSeed(session: Session): Promise<AcademySeed> {
   const token = await getAccessToken();
-  const [tenant, content] = await Promise.all([
+  const [tenant, content, enrollments] = await Promise.all([
     token && session.tenantId != null ? backendTenant(token, session.tenantId) : null,
     token ? fetchDashboardContent(token) : null,
+    token ? fetchDashboardEnrollments(token) : null,
   ]);
   const seed = emptyAcademySeed({
     slug: tenant?.slug ?? "",
@@ -49,6 +52,12 @@ async function backendSeed(session: Session): Promise<AcademySeed> {
     seed.lessons = content.lessons;
   } else {
     seed.loadError = content?.message ?? "انتهت الجلسة. سجّل الدخول مرة أخرى.";
+  }
+  if (enrollments?.ok) {
+    seed.codes = enrollments.codes;
+    seed.students = enrollments.students;
+  } else {
+    seed.loadError ??= enrollments?.message;
   }
   return seed;
 }
@@ -88,7 +97,7 @@ export default async function AcademyDashboardLayout({ children }: LayoutProps<"
           <AcademyShell>
             {seed.loadError && (
               <Notice tone="warning" className="mb-6">
-                تعذّر تحميل الدورات والدروس: {seed.loadError}
+                تعذّر تحميل بيانات الأكاديمية: {seed.loadError}
               </Notice>
             )}
             {children}

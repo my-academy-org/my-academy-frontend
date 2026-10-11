@@ -112,8 +112,8 @@ function useStudentState(seed: StudentSeed) {
         return attempt;
       },
       /**
-       * Returns the unlocked course, or an error message. With a backend the course list is the server's:
-       * the caller refreshes the page to load it, and `course` is only set when the API named it.
+       * Returns the unlocked course, or an error message. With a backend (POST /enrollments/redeem) the
+       * message is the API's own and the course list is the server's: the caller refreshes the page to load it.
        */
       async redeemCode(raw: string): Promise<{ course?: LearnCourse } | { error: string }> {
         const code = raw.trim().toUpperCase().replace(/\s+/g, "");

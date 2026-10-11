@@ -154,7 +154,7 @@ function OverviewTab({ course }: { course: DashCourse }) {
 }
 
 function StudentsTab({ course }: { course: DashCourse }) {
-  const { studentsIn, progressOf, unenrollStudent, notify } = useAcademy();
+  const { studentsIn, progressOf, unenrollStudent, notify, live } = useAcademy();
   const { confirm, dialog } = useConfirm();
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -219,17 +219,25 @@ function StudentsTab({ course }: { course: DashCourse }) {
                           onSelect: () =>
                             confirm({
                               title: "إزالة الطالب من الدورة",
-                              description: (
+                              description: live ? (
+                                <>
+                                  سيُلغى اشتراك <b className="text-ink-900">{s.name}</b> في «{course.title}» وتُقفل دروسها عليه.
+                                </>
+                              ) : (
                                 <>
                                   سيفقد <b className="text-ink-900">{s.name}</b> الوصول إلى «{course.title}» ويُحذف تقدّمه فيها.
                                 </>
                               ),
-                              points: ["لا يُعاد كود التسجيل المستخدم إلى الأكواد المتاحة."],
+                              points: [
+                                "لا يُعاد كود التسجيل المستخدم إلى الأكواد المتاحة.",
+                                ...(live ? ["يستطيع الطالب العودة بكود جديد، أو بتسجيله يدوياً."] : []),
+                              ],
                               confirmLabel: "إزالة",
                               tone: "danger",
-                              onConfirm: () => {
-                                unenrollStudent(s.id, course.id);
-                                notify(`تمت إزالة ${s.name} من الدورة`);
+                              onConfirm: async () => {
+                                const res = await unenrollStudent(s.id, course.id);
+                                if (res.ok) notify(`تمت إزالة ${s.name} من الدورة`);
+                                else notify(res.message, "error");
                               },
                             }),
                         },
@@ -249,8 +257,9 @@ function StudentsTab({ course }: { course: DashCourse }) {
 }
 
 function EnrollModal({ open, onClose, course }: { open: boolean; onClose: () => void; course: DashCourse }) {
-  const { students, enrollStudent, notify } = useAcademy();
+  const { students, enrollStudent, notify, live } = useAcademy();
   const [query, setQuery] = useState("");
+  const [pendingId, setPendingId] = useState<string>();
   const available = students.filter(
     (s) => s.status === "ACTIVE" && !s.enrollments.some((e) => e.courseId === course.id) && (!query || s.name.includes(query) || s.email.includes(query.toLowerCase())),
   );
@@ -272,19 +281,23 @@ function EnrollModal({ open, onClose, course }: { open: boolean; onClose: () => 
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => {
-                  enrollStudent(s.id, course.id);
-                  notify(`تم تسجيل ${s.name} في الدورة`);
+                disabled={!!pendingId}
+                onClick={async () => {
+                  setPendingId(s.id);
+                  const res = await enrollStudent(s.id, course.id);
+                  setPendingId(undefined);
+                  if (res.ok) notify(`تم تسجيل ${s.name} في الدورة`);
+                  else notify(res.message, "error");
                 }}
               >
-                تسجيل
+                {pendingId === s.id ? "جارٍ التسجيل…" : "تسجيل"}
               </Button>
             </li>
           ))
         )}
       </ul>
       <p className="mt-3 text-xs text-ink-500">
-        يظهر هنا الطلاب المسجّلون في أكاديميتك فقط. {formatStudents(available.length)} متاحون.
+        {live ? "يظهر هنا طلاب أكاديميتك الذين سبق اشتراكهم في إحدى دوراتك." : "يظهر هنا الطلاب المسجّلون في أكاديميتك فقط."} {formatStudents(available.length)} متاحون.
       </p>
     </Modal>
   );
